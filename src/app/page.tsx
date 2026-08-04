@@ -1,0 +1,148 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { Navbar } from '@/components/layout/Navbar'
+import { CategoryBar } from '@/components/layout/CategoryBar'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { Footer } from '@/components/layout/Footer'
+import { ProductCard } from '@/components/product/ProductCard'
+import { ProductDetail } from '@/components/product/ProductDetail'
+import { SortBar } from '@/components/product/SortBar'
+import { CartDrawer } from '@/components/cart/CartDrawer'
+import { useAppStore } from '@/stores'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { Product, Category } from '@/types'
+import { Search, PackageOpen } from 'lucide-react'
+
+export default function HomePage() {
+  const { activeCategory, searchQuery, sortBy, detailProductId, setDetailProductId } = useAppStore()
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+  const [total, setTotal] = useState(0)
+
+  // Fetch products
+  const fetchProducts = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (activeCategory && activeCategory !== 'all' && activeCategory !== 'free' && activeCategory !== 'best-selling' && activeCategory !== 'featured' && activeCategory !== 'latest') {
+        params.set('category', activeCategory)
+      }
+      if (searchQuery) params.set('search', searchQuery)
+      if (activeCategory === 'free') params.set('free', 'true')
+      if (activeCategory === 'best-selling') {
+        params.set('sort', 'best-selling')
+      } else if (activeCategory === 'featured') {
+        // We'll filter featured on client
+      } else {
+        params.set('sort', sortBy)
+      }
+
+      const res = await fetch(`/api/products?${params.toString()}`)
+      const data = await res.json()
+
+      let filtered = data.products as Product[]
+
+      // Client-side featured filter
+      if (activeCategory === 'featured') {
+        filtered = filtered.filter((p: Product) => p.featured)
+      }
+
+      setProducts(filtered)
+      setTotal(data.total)
+      if (data.categories) setCategories(data.categories)
+    } catch {
+      setProducts([])
+    } finally {
+      setLoading(false)
+    }
+  }, [activeCategory, searchQuery, sortBy])
+
+  useEffect(() => {
+    fetchProducts()
+  }, [fetchProducts])
+
+  // Selected product for detail
+  const selectedProduct = detailProductId
+    ? products.find((p) => p.id === detailProductId)
+    : null
+
+  return (
+    <div className="flex min-h-screen flex-col bg-[#0f0f0f] text-[#f1f1f1]">
+      <Navbar />
+      <CategoryBar categories={categories} />
+      <Sidebar />
+      <CartDrawer />
+
+      {/* Main content */}
+      <main className="flex-1">
+        <div className="mx-auto max-w-[1400px]">
+          <SortBar />
+
+          {/* Results count */}
+          <div className="px-4 pb-2 md:px-6">
+            {!loading && (
+              <p className="text-xs text-[#888]">
+                {total > 0
+                  ? `${total} sản phẩm ${searchQuery ? `cho "${searchQuery}"` : ''}`
+                  : searchQuery
+                    ? `Không tìm thấy kết quả cho "${searchQuery}"`
+                    : ''}
+              </p>
+            )}
+          </div>
+
+          {/* Product grid */}
+          <div className="px-4 pb-8 md:px-6">
+            {loading ? (
+              <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="space-y-3">
+                    <Skeleton className="aspect-video w-full rounded-xl bg-[#1f1f1f]" />
+                    <div className="flex gap-3">
+                      <Skeleton className="h-9 w-9 shrink-0 rounded-full bg-[#1f1f1f]" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-full bg-[#1f1f1f]" />
+                        <Skeleton className="h-3 w-3/4 bg-[#1f1f1f]" />
+                        <Skeleton className="h-3 w-1/2 bg-[#1f1f1f]" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : products.length > 0 ? (
+              <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 py-20 text-[#888]">
+                {searchQuery ? (
+                  <>
+                    <Search className="h-16 w-16 opacity-30" />
+                    <p className="text-lg font-medium">Không tìm thấy kết quả</p>
+                    <p className="text-sm">
+                      Thử tìm với từ khóa khác hoặc duyệt danh mục
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <PackageOpen className="h-16 w-16 opacity-30" />
+                    <p className="text-lg font-medium">Chưa có sản phẩm</p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+
+      {/* Product detail modal */}
+      {selectedProduct && <ProductDetail product={selectedProduct} />}
+    </div>
+  )
+}

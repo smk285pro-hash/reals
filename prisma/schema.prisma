@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  bio       String?
+  isSeller  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  Product[]
+  reviews   Review[]
+}
+
+model Category {
+  id       String   @id @default(cuid())
+  name     String   @unique
+  slug     String   @unique
+  icon     String?
+  order    Int      @default(0)
+  products Product[]
+}
+
+model Product {
+  id           String    @id @default(cuid())
+  title        String
+  description  String
+  price        Float     @default(0)
+  isFree       Boolean   @default(false)
+  format       String
+  categorySlug String
+  category     Category  @relation(fields: [categorySlug], references: [slug])
+  thumbnail    String
+  videoUrl     String?
+  duration     String?
+  views        Int       @default(0)
+  sales        Int       @default(0)
+  rating       Float     @default(0)
+  sellerId     String
+  seller       User      @relation(fields: [sellerId], references: [id])
+  tags         String
+  featured     Boolean   @default(false)
+  published    Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  reviews      Review[]
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  sessionId String
+  productId String
+  quantity  Int      @default(1)
+  addedAt   DateTime @default(now())
+}
