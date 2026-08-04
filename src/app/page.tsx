@@ -5,18 +5,28 @@ import { Navbar } from '@/components/layout/Navbar'
 import { CategoryBar } from '@/components/layout/CategoryBar'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Footer } from '@/components/layout/Footer'
+import { MobileNav } from '@/components/layout/MobileNav'
+import { NotificationDropdown } from '@/components/layout/NotificationDropdown'
 import { ProductCard } from '@/components/product/ProductCard'
 import { ProductDetail } from '@/components/product/ProductDetail'
 import { SortBar } from '@/components/product/SortBar'
+import { TrendingSection } from '@/components/product/TrendingSection'
+import { RecentlyViewed } from '@/components/product/RecentlyViewed'
 import { CartDrawer } from '@/components/cart/CartDrawer'
-import { useAppStore } from '@/stores'
+import { CheckoutModal } from '@/components/cart/CheckoutModal'
+import { ScrollToTop } from '@/components/ui-custom/ScrollToTop'
+import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Product, Category } from '@/types'
-import { Search, PackageOpen } from 'lucide-react'
+import { Search, PackageOpen, Heart } from 'lucide-react'
+import { Toaster, toast } from 'sonner'
 
 export default function HomePage() {
   const { activeCategory, searchQuery, sortBy, detailProductId, setDetailProductId } = useAppStore()
+  const wishlistItems = useWishlistStore((s) => s.items)
+  const { addItem: addRecent } = useRecentlyViewedStore()
   const [products, setProducts] = useState<Product[]>([])
+  const [allProducts, setAllProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
@@ -26,7 +36,7 @@ export default function HomePage() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (activeCategory && activeCategory !== 'all' && activeCategory !== 'free' && activeCategory !== 'best-selling' && activeCategory !== 'featured' && activeCategory !== 'latest') {
+      if (activeCategory && activeCategory !== 'all' && activeCategory !== 'free' && activeCategory !== 'best-selling' && activeCategory !== 'featured' && activeCategory !== 'latest' && activeCategory !== 'wishlist') {
         params.set('category', activeCategory)
       }
       if (searchQuery) params.set('search', searchQuery)
@@ -50,6 +60,7 @@ export default function HomePage() {
       }
 
       setProducts(filtered)
+      setAllProducts(data.products)
       setTotal(data.total)
       if (data.categories) setCategories(data.categories)
     } catch {
@@ -60,29 +71,66 @@ export default function HomePage() {
   }, [activeCategory, searchQuery, sortBy])
 
   useEffect(() => {
+    // Wishlist filter doesn't need API
+    if (activeCategory === 'wishlist') {
+      setProducts(wishlistItems)
+      setLoading(false)
+      return
+    }
     fetchProducts()
-  }, [fetchProducts])
+  }, [fetchProducts, activeCategory, wishlistItems])
 
   // Selected product for detail
   const selectedProduct = detailProductId
-    ? products.find((p) => p.id === detailProductId)
+    ? [...allProducts, ...wishlistItems].find((p) => p.id === detailProductId)
     : null
 
   return (
     <div className="flex min-h-screen flex-col bg-[#0f0f0f] text-[#f1f1f1]">
+      <Toaster theme="dark" position="bottom-right" richColors />
       <Navbar />
       <CategoryBar categories={categories} />
       <Sidebar />
       <CartDrawer />
+      <CheckoutModal />
+      <NotificationDropdown />
+      <ScrollToTop />
+      <MobileNav />
 
       {/* Main content */}
-      <main className="flex-1">
+      <main className="flex-1 pb-16 md:pb-0">
         <div className="mx-auto max-w-[1400px]">
+          {/* Trending section - only on "all" and no search */}
+          {!searchQuery && (activeCategory === 'all' || activeCategory === 'latest') && !loading && allProducts.length > 0 && (
+            <div className="px-4 pt-4 md:px-6">
+              <TrendingSection products={allProducts} />
+            </div>
+          )}
+
+          {/* Recently Viewed - only on "all" */}
+          {activeCategory === 'all' && !searchQuery && (
+            <div className="px-4 md:px-6">
+              <RecentlyViewed
+                onProductClick={(product) => {
+                  addRecent(product)
+                  setDetailProductId(product.id)
+                }}
+              />
+            </div>
+          )}
+
           <SortBar />
 
-          {/* Results count */}
+          {/* Results count / Wishlist header */}
           <div className="px-4 pb-2 md:px-6">
-            {!loading && (
+            {activeCategory === 'wishlist' ? (
+              <div className="flex items-center gap-2">
+                <Heart className="h-4 w-4 text-red-400" />
+                <span className="text-sm font-medium text-[#f1f1f1]">
+                  Yêu thích ({wishlistItems.length})
+                </span>
+              </div>
+            ) : !loading ? (
               <p className="text-xs text-[#888]">
                 {total > 0
                   ? `${total} sản phẩm ${searchQuery ? `cho "${searchQuery}"` : ''}`
@@ -90,7 +138,7 @@ export default function HomePage() {
                     ? `Không tìm thấy kết quả cho "${searchQuery}"`
                     : ''}
               </p>
-            )}
+            ) : null}
           </div>
 
           {/* Product grid */}
@@ -119,7 +167,13 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-3 py-20 text-[#888]">
-                {searchQuery ? (
+                {activeCategory === 'wishlist' ? (
+                  <>
+                    <Heart className="h-16 w-16 opacity-30" />
+                    <p className="text-lg font-medium">Chưa có sản phẩm yêu thích</p>
+                    <p className="text-sm">Bấm tim ❤️ trên sản phẩm để thêm vào danh sách</p>
+                  </>
+                ) : searchQuery ? (
                   <>
                     <Search className="h-16 w-16 opacity-30" />
                     <p className="text-lg font-medium">Không tìm thấy kết quả</p>

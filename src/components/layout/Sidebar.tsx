@@ -4,7 +4,7 @@ import {
   Home, Flame, Clock, Tag, Heart, Download,
   Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star
 } from 'lucide-react'
-import { useAppStore } from '@/stores'
+import { useAppStore, useWishlistStore } from '@/stores'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -29,6 +29,7 @@ const categoryLinks = [
 
 export function Sidebar() {
   const { sidebarOpen, setActiveCategory, activeCategory } = useAppStore()
+  const wishlistCount = useWishlistStore((s) => s.items.length)
   const [categoriesExpanded, setCategoriesExpanded] = useState(true)
 
   if (!sidebarOpen) return null
@@ -111,9 +112,18 @@ export function Sidebar() {
           <Button
             variant="ghost"
             className="w-full justify-start gap-6 px-3 text-sm text-[#f1f1f1] hover:bg-[#1f1f1f]"
+            onClick={() => {
+              setActiveCategory('wishlist')
+              useAppStore.getState().setSidebarOpen(false)
+            }}
           >
             <Heart className="h-5 w-5" />
             Yêu thích
+            {wishlistCount > 0 && (
+              <span className="ml-auto rounded-full bg-[#ff6b6b] px-2 py-0.5 text-[10px] font-bold text-white">
+                {wishlistCount}
+              </span>
+            )}
           </Button>
 
           <Button

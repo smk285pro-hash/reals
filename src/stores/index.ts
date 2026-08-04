@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Product, CartItemType } from '@/types'
 
+// ==================== CART STORE ====================
 interface CartStore {
   items: CartItemType[]
   addItem: (product: Product) => void
@@ -64,20 +65,89 @@ export const useCartStore = create<CartStore>()(
   )
 )
 
-// App-level store for UI state
+// ==================== WISHLIST STORE ====================
+interface WishlistStore {
+  items: Product[]
+  addItem: (product: Product) => void
+  removeItem: (productId: string) => void
+  toggleItem: (product: Product) => void
+  isInWishlist: (productId: string) => boolean
+  clearWishlist: () => void
+}
+
+export const useWishlistStore = create<WishlistStore>()(
+  persist(
+    (set, get) => ({
+      items: [],
+
+      addItem: (product: Product) => {
+        if (!get().items.some((i) => i.id === product.id)) {
+          set({ items: [...get().items, product] })
+        }
+      },
+
+      removeItem: (productId: string) => {
+        set({ items: get().items.filter((i) => i.id !== productId) })
+      },
+
+      toggleItem: (product: Product) => {
+        if (get().items.some((i) => i.id === product.id)) {
+          get().removeItem(product.id)
+        } else {
+          get().addItem(product)
+        }
+      },
+
+      isInWishlist: (productId: string) =>
+        get().items.some((i) => i.id === productId),
+
+      clearWishlist: () => set({ items: [] }),
+    }),
+    { name: 'reatube-wishlist' }
+  )
+)
+
+// ==================== RECENTLY VIEWED STORE ====================
+interface RecentlyViewedStore {
+  items: Product[]
+  addItem: (product: Product) => void
+  clearAll: () => void
+}
+
+export const useRecentlyViewedStore = create<RecentlyViewedStore>()(
+  persist(
+    (set, get) => ({
+      items: [],
+
+      addItem: (product: Product) => {
+        const filtered = get().items.filter((i) => i.id !== product.id)
+        set({ items: [product, ...filtered].slice(0, 10) })
+      },
+
+      clearAll: () => set({ items: [] }),
+    }),
+    { name: 'reatube-recent' }
+  )
+)
+
+// ==================== APP STORE ====================
 interface AppStore {
   sidebarOpen: boolean
   searchQuery: string
   activeCategory: string
   cartDrawerOpen: boolean
   detailProductId: string | null
+  checkoutOpen: boolean
+  notificationOpen: boolean
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
   setSearchQuery: (q: string) => void
   setActiveCategory: (c: string) => void
   setCartDrawerOpen: (open: boolean) => void
   setDetailProductId: (id: string | null) => void
-  sortBy: 'latest' | 'popular' | 'price-asc' | 'price-desc' | 'rating'
+  setCheckoutOpen: (open: boolean) => void
+  setNotificationOpen: (open: boolean) => void
+  sortBy: 'latest' | 'popular' | 'price-asc' | 'price-desc' | 'rating' | 'best-selling'
   setSortBy: (s: AppStore['sortBy']) => void
 }
 
@@ -87,6 +157,8 @@ export const useAppStore = create<AppStore>()((set) => ({
   activeCategory: 'all',
   cartDrawerOpen: false,
   detailProductId: null,
+  checkoutOpen: false,
+  notificationOpen: false,
   sortBy: 'latest',
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -94,5 +166,7 @@ export const useAppStore = create<AppStore>()((set) => ({
   setActiveCategory: (c) => set({ activeCategory: c }),
   setCartDrawerOpen: (open) => set({ cartDrawerOpen: open }),
   setDetailProductId: (id) => set({ detailProductId: id }),
+  setCheckoutOpen: (open) => set({ checkoutOpen: open }),
+  setNotificationOpen: (open) => set({ notificationOpen: open }),
   setSortBy: (s) => set({ sortBy: s }),
 }))

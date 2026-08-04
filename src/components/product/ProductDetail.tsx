@@ -2,18 +2,28 @@
 
 import {
   X, Star, Download, Eye, ShoppingCart, BadgeCheck,
-  Share2, Heart, Flag, FileCode
+  Share2, Heart, Flag, FileCode, Check, Copy
 } from 'lucide-react'
-import { useAppStore, useCartStore } from '@/stores'
+import { useAppStore, useCartStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Product } from '@/types'
+import { useState } from 'react'
 
 function formatViews(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
   return n.toString()
+}
+
+function getProductBadges(product: Product): { label: string; color: string }[] {
+  const badges: { label: string; color: string }[] = []
+  const daysSinceCreation = (Date.now() - new Date(product.createdAt).getTime()) / 86400000
+  if (daysSinceCreation < 7) badges.push({ label: 'NEW', color: 'bg-[#3ea6ff] text-white' })
+  if (product.sales > 500) badges.push({ label: 'HOT', color: 'bg-[#ff6b6b] text-white' })
+  if (product.rating >= 4.8) badges.push({ label: 'TOP RATED', color: 'bg-[#f5a623] text-black' })
+  return badges.slice(0, 2)
 }
 
 interface ProductDetailProps {
@@ -23,7 +33,11 @@ interface ProductDetailProps {
 export function ProductDetail({ product }: ProductDetailProps) {
   const { setDetailProductId } = useAppStore()
   const { addItem, isInCart } = useCartStore()
+  const { isInWishlist, toggleItem } = useWishlistStore()
   const inCart = isInCart(product.id)
+  const inWishlist = isInWishlist(product.id)
+  const badges = getProductBadges(product)
+  const [copied, setCopied] = useState(false)
 
   const initials = product.seller.name
     ?.split(' ')
@@ -31,6 +45,13 @@ export function ProductDetail({ product }: ProductDetailProps) {
     .join('')
     .slice(0, 2)
     .toUpperCase() || 'RF'
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}?product=${product.id}`
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <>
@@ -53,6 +74,16 @@ export function ProductDetail({ product }: ProductDetailProps) {
             {product.duration && (
               <div className="absolute bottom-3 right-3 rounded bg-black/80 px-2 py-1 text-sm font-medium text-white">
                 {product.duration}
+              </div>
+            )}
+            {/* Badges overlay */}
+            {badges.length > 0 && (
+              <div className="absolute left-3 top-3 flex gap-1">
+                {badges.map((b) => (
+                  <span key={b.label} className={`rounded px-2 py-1 text-xs font-bold ${b.color}`}>
+                    {b.label}
+                  </span>
+                ))}
               </div>
             )}
           </div>
@@ -114,10 +145,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
               {/* Format & Category */}
               <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant="outline"
-                  className="border-[#303030] bg-[#1f1f1f] text-[#3ea6ff]"
-                >
+                <Badge variant="outline" className="border-[#303030] bg-[#1f1f1f] text-[#3ea6ff]">
                   <FileCode className="mr-1 h-3 w-3" />
                   {product.format}
                 </Badge>
@@ -125,11 +153,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                   {product.categorySlug}
                 </Badge>
                 {product.tags.split(',').map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="outline"
-                    className="border-[#303030] bg-[#1a1a1a] text-[#888]"
-                  >
+                  <Badge key={tag} variant="outline" className="border-[#303030] bg-[#1a1a1a] text-[#888]">
                     {tag}
                   </Badge>
                 ))}
@@ -151,11 +175,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[#aaa]">Giá</span>
-                  <span
-                    className={`text-2xl font-bold ${
-                      product.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'
-                    }`}
-                  >
+                  <span className={`text-2xl font-bold ${product.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
                     {product.isFree ? 'MIỄN PHÍ' : `$${product.price}`}
                   </span>
                 </div>
@@ -177,7 +197,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     }}
                   >
                     <ShoppingCart className="h-4 w-4" />
-                    {inCart ? 'Đã thêm vào giỏ' : 'Thêm vào giỏ hàng'}
+                    {inCart ? 'Đã thêm vào giỏ ✓' : 'Thêm vào giỏ hàng'}
                   </Button>
                 )}
               </div>
@@ -186,17 +206,19 @@ export function ProductDetail({ product }: ProductDetailProps) {
               <div className="flex justify-around pt-1">
                 <Button
                   variant="ghost"
-                  className="flex flex-col items-center gap-1 text-xs text-[#aaa] hover:bg-[#1f1f1f] hover:text-white"
+                  className={`flex flex-col items-center gap-1 text-xs hover:bg-[#1f1f1f] ${inWishlist ? 'text-red-400' : 'text-[#aaa] hover:text-white'}`}
+                  onClick={() => toggleItem(product)}
                 >
-                  <Heart className="h-5 w-5" />
-                  Yêu thích
+                  <Heart className={`h-5 w-5 ${inWishlist ? 'fill-red-400' : ''}`} />
+                  {inWishlist ? 'Đã thích' : 'Yêu thích'}
                 </Button>
                 <Button
                   variant="ghost"
                   className="flex flex-col items-center gap-1 text-xs text-[#aaa] hover:bg-[#1f1f1f] hover:text-white"
+                  onClick={handleShare}
                 >
-                  <Share2 className="h-5 w-5" />
-                  Chia sẻ
+                  {copied ? <Check className="h-5 w-5 text-[#3fb950]" /> : <Copy className="h-5 w-5" />}
+                  {copied ? 'Đã copy!' : 'Copy link'}
                 </Button>
                 <Button
                   variant="ghost"

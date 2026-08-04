@@ -2,12 +2,13 @@
 
 import { X, ShoppingCart, Minus, Plus, Trash2, CreditCard } from 'lucide-react'
 import { useCartStore, useAppStore } from '@/stores'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 export function CartDrawer() {
-  const { cartDrawerOpen, setCartDrawerOpen } = useAppStore()
+  const { cartDrawerOpen, setCartDrawerOpen, setCheckoutOpen } = useAppStore()
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCartStore()
 
   if (!cartDrawerOpen) return null
@@ -122,7 +123,13 @@ export function CartDrawer() {
                 <span className="text-sm text-[#aaa]">Tổng cộng</span>
                 <span className="text-xl font-bold text-white">${totalPrice().toFixed(2)}</span>
               </div>
-              <Button className="w-full gap-2 rounded-lg bg-[#f5a623] py-3 text-sm font-semibold text-black hover:bg-[#e09515]">
+              <Button
+                className="w-full gap-2 rounded-lg bg-[#f5a623] py-3 text-sm font-semibold text-black hover:bg-[#e09515]"
+                onClick={() => {
+                  setCartDrawerOpen(false)
+                  setCheckoutOpen(true)
+                }}
+              >
                 <CreditCard className="h-4 w-4" />
                 Thanh toán
               </Button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Menu, Video, Bell, ShoppingCart, Upload, User } from 'lucide-react'
+import { Search, Menu, Video, Bell, ShoppingCart, Upload, User, Share2 } from 'lucide-react'
 import { useAppStore, useCartStore } from '@/stores'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { useEffect, useState } from 'react'
 
 export function Navbar() {
-  const { toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery } = useAppStore()
+  const { toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery, notificationOpen, setNotificationOpen } = useAppStore()
   const totalItems = useCartStore((s) => s.totalItems())
   const [localSearch, setLocalSearch] = useState(searchQuery)
 
@@ -16,6 +16,14 @@ export function Navbar() {
     const timer = setTimeout(() => setSearchQuery(localSearch), 300)
     return () => clearTimeout(timer)
   }, [localSearch, setSearchQuery])
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      await navigator.share({ title: 'ReaTube Store', url: window.location.href })
+    } else {
+      await navigator.clipboard.writeText(window.location.href)
+    }
+  }
 
   return (
     <nav className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-[#303030] bg-[#0f0f0f] px-4 md:px-6">
@@ -51,7 +59,7 @@ export function Navbar() {
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-3">
         <Button
           variant="ghost"
           size="icon"
@@ -66,8 +74,22 @@ export function Navbar() {
         >
           <Video className="h-5 w-5" />
         </Button>
-        <Button variant="ghost" size="icon" className="text-white hover:bg-[#272727]">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative text-white hover:bg-[#272727]"
+          onClick={() => setNotificationOpen(!notificationOpen)}
+        >
           <Bell className="h-5 w-5" />
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#3ea6ff]" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden text-white hover:bg-[#272727] md:flex"
+          onClick={handleShare}
+        >
+          <Share2 className="h-5 w-5" />
         </Button>
         <Button
           variant="ghost"
