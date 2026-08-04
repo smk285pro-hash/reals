@@ -1,6 +1,6 @@
 'use client'
 
-import { Home, Search, Heart, ShoppingCart, User } from 'lucide-react'
+import { Home, Search, Heart, ShoppingCart, LayoutDashboard } from 'lucide-react'
 import { useAppStore, useCartStore, useWishlistStore } from '@/stores'
 
 export function MobileNav() {
@@ -46,9 +46,12 @@ export function MobileNav() {
             </span>
           )}
         </button>
-        <button className="flex flex-col items-center gap-0.5 text-[#aaa]">
-          <User className="h-5 w-5" />
-          <span className="text-[10px]">Tài khoản</span>
+        <button
+          onClick={() => setActiveCategory('seller')}
+          className="flex flex-col items-center gap-0.5 text-[#aaa]"
+        >
+          <LayoutDashboard className="h-5 w-5" />
+          <span className="text-[10px]">Dashboard</span>
         </button>
       </div>
     </nav>

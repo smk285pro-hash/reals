@@ -2,7 +2,7 @@
 
 import {
   Home, Flame, Clock, Tag, Heart, Download,
-  Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star
+  Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star, LayoutDashboard
 } from 'lucide-react'
 import { useAppStore, useWishlistStore } from '@/stores'
 import { useState } from 'react'
@@ -124,6 +124,24 @@ export function Sidebar() {
                 {wishlistCount}
               </span>
             )}
+          </Button>
+
+          <Separator className="my-3 bg-[#303030]" />
+
+          <Button
+            variant="ghost"
+            className={`w-full justify-start gap-6 px-3 text-sm ${
+              activeCategory === 'seller'
+                ? 'bg-[#272727] font-medium text-[#f5a623]'
+                : 'text-[#f1f1f1] hover:bg-[#1f1f1f]'
+            }`}
+            onClick={() => {
+              setActiveCategory('seller')
+              useAppStore.getState().setSidebarOpen(false)
+            }}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+            Seller Dashboard
           </Button>
 
           <Button

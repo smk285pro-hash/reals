@@ -14,12 +14,13 @@ import { TrendingSection } from '@/components/product/TrendingSection'
 import { RecentlyViewed } from '@/components/product/RecentlyViewed'
 import { CartDrawer } from '@/components/cart/CartDrawer'
 import { CheckoutModal } from '@/components/cart/CheckoutModal'
+import { SellerDashboard } from '@/components/seller/SellerDashboard'
 import { ScrollToTop } from '@/components/ui-custom/ScrollToTop'
 import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Product, Category } from '@/types'
 import { Search, PackageOpen, Heart } from 'lucide-react'
-import { Toaster, toast } from 'sonner'
+import { Toaster } from 'sonner'
 
 export default function HomePage() {
   const { activeCategory, searchQuery, sortBy, detailProductId, setDetailProductId } = useAppStore()
@@ -31,12 +32,14 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
 
+  const isSellerView = activeCategory === 'seller'
+
   // Fetch products
   const fetchProducts = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (activeCategory && activeCategory !== 'all' && activeCategory !== 'free' && activeCategory !== 'best-selling' && activeCategory !== 'featured' && activeCategory !== 'latest' && activeCategory !== 'wishlist') {
+      if (activeCategory && activeCategory !== 'all' && activeCategory !== 'free' && activeCategory !== 'best-selling' && activeCategory !== 'featured' && activeCategory !== 'latest' && activeCategory !== 'wishlist' && activeCategory !== 'seller') {
         params.set('category', activeCategory)
       }
       if (searchQuery) params.set('search', searchQuery)
@@ -44,7 +47,7 @@ export default function HomePage() {
       if (activeCategory === 'best-selling') {
         params.set('sort', 'best-selling')
       } else if (activeCategory === 'featured') {
-        // We'll filter featured on client
+        // client filter
       } else {
         params.set('sort', sortBy)
       }
@@ -54,7 +57,6 @@ export default function HomePage() {
 
       let filtered = data.products as Product[]
 
-      // Client-side featured filter
       if (activeCategory === 'featured') {
         filtered = filtered.filter((p: Product) => p.featured)
       }
@@ -71,16 +73,18 @@ export default function HomePage() {
   }, [activeCategory, searchQuery, sortBy])
 
   useEffect(() => {
-    // Wishlist filter doesn't need API
     if (activeCategory === 'wishlist') {
       setProducts(wishlistItems)
+      setLoading(false)
+      return
+    }
+    if (activeCategory === 'seller') {
       setLoading(false)
       return
     }
     fetchProducts()
   }, [fetchProducts, activeCategory, wishlistItems])
 
-  // Selected product for detail
   const selectedProduct = detailProductId
     ? [...allProducts, ...wishlistItems].find((p) => p.id === detailProductId)
     : null
@@ -89,7 +93,7 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col bg-[#0f0f0f] text-[#f1f1f1]">
       <Toaster theme="dark" position="bottom-right" richColors />
       <Navbar />
-      <CategoryBar categories={categories} />
+      {!isSellerView && <CategoryBar categories={categories} />}
       <Sidebar />
       <CartDrawer />
       <CheckoutModal />
@@ -97,103 +101,107 @@ export default function HomePage() {
       <ScrollToTop />
       <MobileNav />
 
-      {/* Main content */}
-      <main className="flex-1 pb-16 md:pb-0">
-        <div className="mx-auto max-w-[1400px]">
-          {/* Trending section - only on "all" and no search */}
-          {!searchQuery && (activeCategory === 'all' || activeCategory === 'latest') && !loading && allProducts.length > 0 && (
-            <div className="px-4 pt-4 md:px-6">
-              <TrendingSection products={allProducts} />
-            </div>
-          )}
+      {/* Seller Dashboard View */}
+      {isSellerView ? (
+        <SellerDashboard />
+      ) : (
+        <>
+          {/* Main content */}
+          <main className="flex-1 pb-16 md:pb-0">
+            <div className="mx-auto max-w-[1400px]">
+              {/* Trending section */}
+              {!searchQuery && (activeCategory === 'all' || activeCategory === 'latest') && !loading && allProducts.length > 0 && (
+                <div className="px-4 pt-4 md:px-6">
+                  <TrendingSection products={allProducts} />
+                </div>
+              )}
 
-          {/* Recently Viewed - only on "all" */}
-          {activeCategory === 'all' && !searchQuery && (
-            <div className="px-4 md:px-6">
-              <RecentlyViewed
-                onProductClick={(product) => {
-                  addRecent(product)
-                  setDetailProductId(product.id)
-                }}
-              />
-            </div>
-          )}
+              {/* Recently Viewed */}
+              {activeCategory === 'all' && !searchQuery && (
+                <div className="px-4 md:px-6">
+                  <RecentlyViewed
+                    onProductClick={(product) => {
+                      addRecent(product)
+                      setDetailProductId(product.id)
+                    }}
+                  />
+                </div>
+              )}
 
-          <SortBar />
+              <SortBar />
 
-          {/* Results count / Wishlist header */}
-          <div className="px-4 pb-2 md:px-6">
-            {activeCategory === 'wishlist' ? (
-              <div className="flex items-center gap-2">
-                <Heart className="h-4 w-4 text-red-400" />
-                <span className="text-sm font-medium text-[#f1f1f1]">
-                  Yêu thích ({wishlistItems.length})
-                </span>
-              </div>
-            ) : !loading ? (
-              <p className="text-xs text-[#888]">
-                {total > 0
-                  ? `${total} sản phẩm ${searchQuery ? `cho "${searchQuery}"` : ''}`
-                  : searchQuery
-                    ? `Không tìm thấy kết quả cho "${searchQuery}"`
-                    : ''}
-              </p>
-            ) : null}
-          </div>
-
-          {/* Product grid */}
-          <div className="px-4 pb-8 md:px-6">
-            {loading ? (
-              <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="space-y-3">
-                    <Skeleton className="aspect-video w-full rounded-xl bg-[#1f1f1f]" />
-                    <div className="flex gap-3">
-                      <Skeleton className="h-9 w-9 shrink-0 rounded-full bg-[#1f1f1f]" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-full bg-[#1f1f1f]" />
-                        <Skeleton className="h-3 w-3/4 bg-[#1f1f1f]" />
-                        <Skeleton className="h-3 w-1/2 bg-[#1f1f1f]" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : products.length > 0 ? (
-              <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-3 py-20 text-[#888]">
+              {/* Results count / Wishlist header */}
+              <div className="px-4 pb-2 md:px-6">
                 {activeCategory === 'wishlist' ? (
-                  <>
-                    <Heart className="h-16 w-16 opacity-30" />
-                    <p className="text-lg font-medium">Chưa có sản phẩm yêu thích</p>
-                    <p className="text-sm">Bấm tim ❤️ trên sản phẩm để thêm vào danh sách</p>
-                  </>
-                ) : searchQuery ? (
-                  <>
-                    <Search className="h-16 w-16 opacity-30" />
-                    <p className="text-lg font-medium">Không tìm thấy kết quả</p>
-                    <p className="text-sm">
-                      Thử tìm với từ khóa khác hoặc duyệt danh mục
-                    </p>
-                  </>
+                  <div className="flex items-center gap-2">
+                    <Heart className="h-4 w-4 text-red-400" />
+                    <span className="text-sm font-medium text-[#f1f1f1]">
+                      Yêu thích ({wishlistItems.length})
+                    </span>
+                  </div>
+                ) : !loading ? (
+                  <p className="text-xs text-[#888]">
+                    {total > 0
+                      ? `${total} sản phẩm ${searchQuery ? `cho "${searchQuery}"` : ''}`
+                      : searchQuery
+                        ? `Không tìm thấy kết quả cho "${searchQuery}"`
+                        : ''}
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Product grid */}
+              <div className="px-4 pb-8 md:px-6">
+                {loading ? (
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <div key={i} className="space-y-3">
+                        <Skeleton className="aspect-video w-full rounded-xl bg-[#1f1f1f]" />
+                        <div className="flex gap-3">
+                          <Skeleton className="h-9 w-9 shrink-0 rounded-full bg-[#1f1f1f]" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-full bg-[#1f1f1f]" />
+                            <Skeleton className="h-3 w-3/4 bg-[#1f1f1f]" />
+                            <Skeleton className="h-3 w-1/2 bg-[#1f1f1f]" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : products.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {products.map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
                 ) : (
-                  <>
-                    <PackageOpen className="h-16 w-16 opacity-30" />
-                    <p className="text-lg font-medium">Chưa có sản phẩm</p>
-                  </>
+                  <div className="flex flex-col items-center justify-center gap-3 py-20 text-[#888]">
+                    {activeCategory === 'wishlist' ? (
+                      <>
+                        <Heart className="h-16 w-16 opacity-30" />
+                        <p className="text-lg font-medium">Chưa có sản phẩm yêu thích</p>
+                        <p className="text-sm">Bấm tim ❤️ trên sản phẩm để thêm vào danh sách</p>
+                      </>
+                    ) : searchQuery ? (
+                      <>
+                        <Search className="h-16 w-16 opacity-30" />
+                        <p className="text-lg font-medium">Không tìm thấy kết quả</p>
+                        <p className="text-sm">Thử tìm với từ khóa khác hoặc duyệt danh mục</p>
+                      </>
+                    ) : (
+                      <>
+                        <PackageOpen className="h-16 w-16 opacity-30" />
+                        <p className="text-lg font-medium">Chưa có sản phẩm</p>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
-      </main>
-
-      <Footer />
+            </div>
+          </main>
+          <Footer />
+        </>
+      )}
 
       {/* Product detail modal */}
       {selectedProduct && <ProductDetail product={selectedProduct} />}

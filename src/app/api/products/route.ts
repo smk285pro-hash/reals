@@ -65,3 +65,42 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ products, total, page, limit, categories })
 }
+
+// POST - Create new product
+export async function POST(req: NextRequest) {
+  const body = await req.json()
+
+  // Find or create a default seller
+  let sellerId = body.sellerId
+  if (!sellerId) {
+    const defaultSeller = await db.user.findFirst({ where: { isSeller: true } })
+    if (!defaultSeller) {
+      const newSeller = await db.user.create({
+        data: { email: `seller${Date.now()}@reatube.com`, name: 'New Seller', isSeller: true },
+      })
+      sellerId = newSeller.id
+    } else {
+      sellerId = defaultSeller.id
+    }
+  }
+
+  const product = await db.product.create({
+    data: {
+      title: body.title,
+      description: body.description || '',
+      price: body.price || 0,
+      isFree: body.isFree || false,
+      format: body.format || 'JSFX',
+      categorySlug: body.categorySlug || 'jsfx',
+      thumbnail: body.thumbnail || 'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
+      duration: body.duration || null,
+      tags: body.tags || '',
+      featured: body.featured || false,
+      published: body.published ?? true,
+      sellerId,
+    },
+    include: { seller: { select: { id: true, name: true, avatar: true, isSeller: true } } },
+  })
+
+  return NextResponse.json(product, { status: 201 })
+}
