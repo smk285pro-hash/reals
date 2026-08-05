@@ -8,7 +8,7 @@ const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute
 const RATE_LIMIT_MAX = {
   default: 60,    // 60 req/min for normal pages
   api: 30,        // 30 req/min for API
-  auth: 5,        // 5 req/min for auth endpoints
+  auth: 20,       // 20 req/min for auth endpoints (OAuth needs multiple calls)
 }
 
 function rateLimit(ip: string, path: string): { allowed: boolean; remaining: number } {
