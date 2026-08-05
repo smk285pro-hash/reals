@@ -15,6 +15,7 @@ import { RecentlyViewed } from '@/components/product/RecentlyViewed'
 import { CartDrawer } from '@/components/cart/CartDrawer'
 import { CheckoutModal } from '@/components/cart/CheckoutModal'
 import { SellerDashboard } from '@/components/seller/SellerDashboard'
+import AdminDashboard from '@/app/admin/page'
 import { ScrollToTop } from '@/components/ui-custom/ScrollToTop'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { RegisterModal } from '@/components/auth/RegisterModal'
@@ -41,13 +42,14 @@ export default function HomePage() {
   const [total, setTotal] = useState(0)
 
   const isSellerView = activeCategory === 'seller'
+  const isAdminView = activeCategory === 'admin'
 
   // Fetch products
   const fetchProducts = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (activeCategory && activeCategory !== 'all' && activeCategory !== 'free' && activeCategory !== 'best-selling' && activeCategory !== 'featured' && activeCategory !== 'latest' && activeCategory !== 'wishlist' && activeCategory !== 'seller') {
+      if (activeCategory && activeCategory !== 'all' && activeCategory !== 'free' && activeCategory !== 'best-selling' && activeCategory !== 'featured' && activeCategory !== 'latest' && activeCategory !== 'wishlist' && activeCategory !== 'seller' && activeCategory !== 'admin') {
         params.set('category', activeCategory)
       }
       if (searchQuery) params.set('search', searchQuery)
@@ -86,7 +88,7 @@ export default function HomePage() {
       setLoading(false)
       return
     }
-    if (activeCategory === 'seller') {
+    if (activeCategory === 'seller' || activeCategory === 'admin') {
       setLoading(false)
       return
     }
@@ -101,7 +103,7 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col bg-[#0f0f0f] text-[#f1f1f1]">
       <Toaster theme="dark" position="bottom-right" richColors />
       <Navbar />
-      {!isSellerView && <CategoryBar categories={categories} />}
+      {!isSellerView && !isAdminView && <CategoryBar categories={categories} />}
       <Sidebar />
       <CartDrawer />
       <CheckoutModal />
@@ -127,8 +129,10 @@ export default function HomePage() {
         onSwitchToLogin={() => { console.log('switchToLogin from forgot'); setForgotPasswordModalOpen(false); setTimeout(() => { console.log('setTimeout: opening login from forgot'); setLoginModalOpen(true); }, 150); }}
       />
 
-      {/* Seller Dashboard View */}
-      {isSellerView ? (
+      {/* Admin Dashboard View */}
+      {isAdminView ? (
+        <AdminDashboard />
+      ) : isSellerView ? (
         <SellerDashboard />
       ) : (
         <>

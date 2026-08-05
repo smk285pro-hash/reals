@@ -15,6 +15,7 @@ model User {
   image         String?   // NextAuth standard field (Google OAuth avatar)
   avatar        String?   // Custom display avatar
   bio           String?
+  role          String    @default("USER")  // ADMIN, SELLER, USER
   isSeller      Boolean   @default(false)
   password      String?   // For credential-based auth (hashed)
   emailVerified DateTime?
@@ -89,6 +90,8 @@ model Product {
   tags         String
   featured     Boolean   @default(false)
   published    Boolean   @default(true)
+  reviewStatus String    @default("APPROVED") // PENDING, APPROVED, REJECTED
+  reviewNote   String?   // Reason for rejection
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   reviews      Review[]

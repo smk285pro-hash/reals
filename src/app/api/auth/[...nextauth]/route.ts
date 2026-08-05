@@ -57,15 +57,17 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id
+        token.role = (user as any).role || 'USER'
         token.isSeller = (user as any).isSeller || false
       }
-      // On sign in, fetch latest user data
+      // On sign in, fetch latest user data (including role)
       if (account) {
         const dbUser = await db.user.findUnique({
           where: { email: token.email! },
         })
         if (dbUser) {
           token.id = dbUser.id
+          token.role = dbUser.role
           token.isSeller = dbUser.isSeller
           token.picture = dbUser.image || dbUser.avatar || token.picture
         }
@@ -75,6 +77,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id
+        ;(session.user as any).role = token.role
         ;(session.user as any).isSeller = token.isSeller
       }
       return session

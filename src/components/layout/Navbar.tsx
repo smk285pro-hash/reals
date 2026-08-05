@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Menu, Video, Bell, ShoppingCart, Upload, User, Share2, LogOut, Settings, Package, ChevronDown } from 'lucide-react'
+import { Search, Menu, Video, Bell, ShoppingCart, Upload, User, Share2, LogOut, Settings, Package, ChevronDown, Shield } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { useAppStore, useCartStore } from '@/stores'
 import { Input } from '@/components/ui/input'
@@ -94,6 +94,18 @@ export function Navbar() {
             <Upload className="h-5 w-5" />
           </Button>
         )}
+        {/* Admin button - only show for admin */}
+        {session?.user && (session.user as any).role === 'ADMIN' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden text-red-400 hover:bg-red-400/10 md:flex"
+            onClick={() => setActiveCategory('admin')}
+            title="Admin Dashboard"
+          >
+            <Shield className="h-5 w-5" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -158,6 +170,15 @@ export function Navbar() {
                 <Package className="h-4 w-4" />
                 Quản lý sản phẩm
               </DropdownMenuItem>
+              {(session.user as any).role === 'ADMIN' && (
+                <DropdownMenuItem
+                  className="cursor-pointer gap-2 text-red-400 focus:bg-red-400/10 focus:text-red-400"
+                  onClick={() => setActiveCategory('admin')}
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin Dashboard
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className="cursor-pointer gap-2 text-[#ccc] focus:bg-[#272727] focus:text-[#f1f1f1]"
               >
