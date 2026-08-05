@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, Search,
   Package, ArrowLeft, Save, X, LogIn, RefreshCw, AlertCircle, Store,
-  Youtube, Upload, Loader2, Link2, CheckCircle2
+  Youtube, Upload, Loader2, CheckCircle2
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -459,6 +459,24 @@ export function SellerDashboard() {
     }
   }
 
+  // Auto-scan YouTube thumbnails when videoUrl changes (debounced)
+  const ytDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (ytDebounceRef.current) clearTimeout(ytDebounceRef.current)
+    if (!form.videoUrl.trim()) {
+      setYtThumbnails([])
+      setYtVideoId(null)
+      return
+    }
+    // Debounce 600ms — wait for user to finish typing/pasting
+    ytDebounceRef.current = setTimeout(() => {
+      fetchYoutubeThumbnails(form.videoUrl)
+    }, 600)
+    return () => {
+      if (ytDebounceRef.current) clearTimeout(ytDebounceRef.current)
+    }
+  }, [form.videoUrl])
+
   const statusFilterOptions: { value: StatusFilter; label: string; count: number }[] = [
     { value: 'ALL', label: 'Tất cả', count: products.length },
     { value: 'PENDING', label: 'Chờ duyệt', count: pendingCount },
@@ -665,34 +683,29 @@ export function SellerDashboard() {
                   </div>
                 </div>
 
-                {/* YouTube Video URL */}
+                {/* YouTube Video URL — auto-scan thumbnails on paste/change */}
                 <div>
                   <label className="mb-1 flex items-center gap-2 text-sm font-medium text-[#ccc]">
                     <Youtube className="h-4 w-4 text-red-500" />
                     Link YouTube Video
                   </label>
-                  <div className="flex gap-2">
+                  <div className="relative">
                     <Input
                       value={form.videoUrl}
                       onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
                       placeholder="https://www.youtube.com/watch?v=... hoặc https://youtu.be/..."
-                      className="flex-1 border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
+                      className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="shrink-0 gap-2 border-[#303030] bg-[#1a1a1a] text-red-400 hover:bg-[#272727] hover:text-red-300"
-                      onClick={() => fetchYoutubeThumbnails(form.videoUrl)}
-                      disabled={ytLoading || !form.videoUrl.trim()}
-                    >
-                      {ytLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                      <span className="hidden sm:inline">{ytLoading ? 'Đang lấy...' : 'Lấy thumbnail'}</span>
-                    </Button>
+                    {ytLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-red-400" />
+                      </div>
+                    )}
                   </div>
-                  {ytVideoId && (
+                  {ytVideoId && !ytLoading && (
                     <div className="mt-2 flex items-center gap-2 text-xs text-emerald-400">
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      Video ID: {ytVideoId}
+                      Đã tìm thấy video — chọn thumbnail bên dưới
                     </div>
                   )}
                 </div>
