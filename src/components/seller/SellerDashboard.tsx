@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, Search,
-  Package, ArrowLeft, Save, X, LogIn, RefreshCw, AlertCircle
+  Package, ArrowLeft, Save, X, LogIn, RefreshCw, AlertCircle, Store
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -103,8 +103,8 @@ function LoginGuard() {
 }
 
 export function SellerDashboard() {
-  const { setActiveCategory } = useAppStore()
-  const { status: authStatus } = useSession()
+  const { setActiveCategory, setSellerApplyModalOpen } = useAppStore()
+  const { status: authStatus, data: session } = useSession()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -151,6 +151,39 @@ export function SellerDashboard() {
   // Auth guard
   if (authStatus === 'unauthenticated') {
     return <LoginGuard />
+  }
+
+  // Seller guard - if user is not an approved seller, show registration prompt
+  if (authStatus === 'authenticated' && !(session?.user as any)?.isSeller) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0f0f0f]">
+        <div className="flex flex-col items-center gap-6 rounded-2xl border border-[#303030] bg-[#181818] p-12 max-w-md text-center">
+          <div className="rounded-full bg-[#f5a623]/10 p-4">
+            <Store className="h-12 w-12 text-[#f5a623]" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-[#f1f1f1]">Bạn cần đăng ký Seller</h2>
+            <p className="mt-2 text-sm text-[#888]">
+              Để đăng và quản lý sản phẩm, bạn cần đăng ký tài khoản Seller và được admin duyệt.
+            </p>
+          </div>
+          <Button
+            className="gap-2 rounded-lg bg-[#f5a623] px-8 text-black font-semibold hover:bg-[#e09515]"
+            onClick={() => setSellerApplyModalOpen(true)}
+          >
+            <Store className="h-4 w-4" />
+            Đăng ký Seller
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-[#888] hover:text-[#f1f1f1]"
+            onClick={() => setActiveCategory('all')}
+          >
+            ← Quay lại trang chủ
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   // Derive counts

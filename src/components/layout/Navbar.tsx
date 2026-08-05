@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Menu, Video, Bell, ShoppingCart, Upload, User, Share2, LogOut, Settings, Package, ChevronDown, Shield } from 'lucide-react'
+import { Search, Menu, Video, Bell, ShoppingCart, Upload, User, Share2, LogOut, Settings, Package, ChevronDown, Shield, Store } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
 import { useAppStore, useCartStore } from '@/stores'
 import { Input } from '@/components/ui/input'
@@ -16,12 +16,13 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { useEffect, useState, useRef } from 'react'
+import { SellerApplyModal } from '@/components/auth/SellerApplyModal'
 
 export function Navbar() {
   const {
     toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery,
     notificationOpen, setNotificationOpen,
-    setLoginModalOpen, setActiveCategory,
+    setLoginModalOpen, setActiveCategory, sellerApplyModalOpen, setSellerApplyModalOpen,
   } = useAppStore()
   const totalItems = useCartStore((s) => s.totalItems())
   const [localSearch, setLocalSearch] = useState(searchQuery)
@@ -81,18 +82,29 @@ export function Navbar() {
 
       {/* Right */}
       <div className="flex items-center gap-2 md:gap-3">
-        {/* Upload / Seller button - only show when logged in */}
-        {session?.user && (
+        {/* Upload / Seller button - smart based on isSeller status */}
+        {session?.user && (session.user as any)?.isSeller ? (
           <Button
             variant="ghost"
             size="icon"
             className="hidden text-white hover:bg-[#272727] md:flex"
             onClick={() => setActiveCategory('seller')}
-            title="Seller Dashboard"
+            title="Đăng sản phẩm"
           >
             <Upload className="h-5 w-5" />
           </Button>
-        )}
+        ) : session?.user ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden gap-1.5 rounded-full border border-[#f5a623]/40 bg-[#f5a623]/10 px-3 text-[#f5a623] hover:bg-[#f5a623]/20 md:flex"
+            onClick={() => setSellerApplyModalOpen(true)}
+            title="Đăng ký Seller"
+          >
+            <Store className="h-4 w-4" />
+            <span className="text-xs font-medium">Đăng ký Seller</span>
+          </Button>
+        ) : null}
         {/* Admin button - only show for admin */}
         {session?.user && (session.user as any).role === 'ADMIN' && (
           <Button
@@ -162,13 +174,23 @@ export function Navbar() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-[#303030]" />
-              <DropdownMenuItem
-                className="cursor-pointer gap-2 text-[#ccc] focus:bg-[#272727] focus:text-[#f1f1f1]"
-                onClick={() => setActiveCategory('seller')}
-              >
-                <Package className="h-4 w-4" />
-                Quản lý sản phẩm
-              </DropdownMenuItem>
+              {(session.user as any)?.isSeller ? (
+                <DropdownMenuItem
+                  className="cursor-pointer gap-2 text-[#ccc] focus:bg-[#272727] focus:text-[#f1f1f1]"
+                  onClick={() => setActiveCategory('seller')}
+                >
+                  <Package className="h-4 w-4" />
+                  Quản lý sản phẩm
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  className="cursor-pointer gap-2 text-[#f5a623] focus:bg-[#f5a623]/10 focus:text-[#f5a623]"
+                  onClick={() => setSellerApplyModalOpen(true)}
+                >
+                  <Store className="h-4 w-4" />
+                  Đăng ký Seller
+                </DropdownMenuItem>
+              )}
               {(session.user as any).role === 'ADMIN' && (
                 <DropdownMenuItem
                   className="cursor-pointer gap-2 text-red-400 focus:bg-red-400/10 focus:text-red-400"
@@ -218,6 +240,9 @@ export function Navbar() {
           )}
         </Button>
       </div>
+
+      {/* Seller Apply Modal - accessible from Navbar */}
+      <SellerApplyModal open={sellerApplyModalOpen} onOpenChange={setSellerApplyModalOpen} />
     </nav>
   )
 }

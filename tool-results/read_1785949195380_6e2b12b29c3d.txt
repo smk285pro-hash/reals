@@ -1,0 +1,755 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from 'react'
+     4→     4→import {
+     5→     5→  Plus, Pencil, Trash2, Eye, EyeOff, Star, Search,
+     6→     6→  Package, ArrowLeft, Save, X, LogIn, RefreshCw, AlertCircle
+     7→     7→} from 'lucide-react'
+     8→     8→import { useSession } from 'next-auth/react'
+     9→     9→import { Button } from '@/components/ui/button'
+    10→    10→import { Input } from '@/components/ui/input'
+    11→    11→import { Badge } from '@/components/ui/badge'
+    12→    12→import { Separator } from '@/components/ui/separator'
+    13→    13→import { Skeleton } from '@/components/ui/skeleton'
+    14→    14→import { useAppStore } from '@/stores'
+    15→    15→import type { Product, Category } from '@/types'
+    16→    16→import { toast } from 'sonner'
+    17→    17→
+    18→    18→type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+    19→    19→type StatusFilter = 'ALL' | ReviewStatus
+    20→    20→
+    21→    21→interface ProductFormData {
+    22→    22→  title: string
+    23→    23→  description: string
+    24→    24→  price: number
+    25→    25→  isFree: boolean
+    26→    26→  format: string
+    27→    27→  categorySlug: string
+    28→    28→  thumbnail: string
+    29→    29→  duration: string
+    30→    30→  tags: string
+    31→    31→  featured: boolean
+    32→    32→  published: boolean
+    33→    33→}
+    34→    34→
+    35→    35→const emptyForm: ProductFormData = {
+    36→    36→  title: '',
+    37→    37→  description: '',
+    38→    38→  price: 0,
+    39→    39→  isFree: false,
+    40→    40→  format: 'JSFX',
+    41→    41→  categorySlug: 'effects',
+    42→    42→  thumbnail: '',
+    43→    43→  duration: '',
+    44→    44→  tags: '',
+    45→    45→  featured: false,
+    46→    46→  published: false, // New products default to unpublished (draft) — review starts as PENDING
+    47→    47→}
+    48→    48→
+    49→    49→const formatOptions = ['JSFX', 'ReaScript Lua', 'ReaScript Python', 'C++ Extension', 'Template']
+    50→    50→
+    51→    51→function formatViews(n: number): string {
+    52→    52→  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
+    53→    53→  return n.toString()
+    54→    54→}
+    55→    55→
+    56→    56→/** Review status badge renderer */
+    57→    57→function ReviewStatusBadge({ status }: { status: ReviewStatus }) {
+    58→    58→  switch (status) {
+    59→    59→    case 'PENDING':
+    60→    60→      return (
+    61→    61→        <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30">
+    62→    62→          ⏳ Chờ duyệt
+    63→    63→        </Badge>
+    64→    64→      )
+    65→    65→    case 'APPROVED':
+    66→    66→      return (
+    67→    67→        <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+    68→    68→          ✓ Đã duyệt
+    69→    69→        </Badge>
+    70→    70→      )
+    71→    71→    case 'REJECTED':
+    72→    72→      return (
+    73→    73→        <Badge className="bg-red-500/20 text-red-400 border border-red-500/30">
+    74→    74→          ✗ Bị từ chối
+    75→    75→        </Badge>
+    76→    76→      )
+    77→    77→  }
+    78→    78→}
+    79→    79→
+    80→    80→// Auth guard component
+    81→    81→function LoginGuard() {
+    82→    82→  const { setLoginModalOpen } = useAppStore()
+    83→    83→  return (
+    84→    84→    <div className="flex min-h-screen items-center justify-center bg-[#0f0f0f]">
+    85→    85→      <div className="flex flex-col items-center gap-6 rounded-2xl border border-[#303030] bg-[#181818] p-12">
+    86→    86→        <div className="rounded-full bg-[#f5a623]/10 p-4">
+    87→    87→          <LogIn className="h-12 w-12 text-[#f5a623]" />
+    88→    88→        </div>
+    89→    89→        <div className="text-center">
+    90→    90→          <h2 className="text-xl font-bold text-[#f1f1f1]">Đăng nhập để tiếp tục</h2>
+    91→    91→          <p className="mt-2 text-sm text-[#888]">Bạn cần đăng nhập để quản lý sản phẩm</p>
+    92→    92→        </div>
+    93→    93→        <Button
+    94→    94→          className="gap-2 rounded-lg bg-[#f5a623] px-8 text-black font-semibold hover:bg-[#e09515]"
+    95→    95→          onClick={() => setLoginModalOpen(true)}
+    96→    96→        >
+    97→    97→          <LogIn className="h-4 w-4" />
+    98→    98→          Đăng nhập
+    99→    99→        </Button>
+   100→   100→      </div>
+   101→   101→    </div>
+   102→   102→  )
+   103→   103→}
+   104→   104→
+   105→   105→export function SellerDashboard() {
+   106→   106→  const { setActiveCategory } = useAppStore()
+   107→   107→  const { status: authStatus } = useSession()
+   108→   108→  const [products, setProducts] = useState<Product[]>([])
+   109→   109→  const [categories, setCategories] = useState<Category[]>([])
+   110→   110→  const [loading, setLoading] = useState(true)
+   111→   111→  const [searchQ, setSearchQ] = useState('')
+   112→   112→  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+   113→   113→  const [showForm, setShowForm] = useState(false)
+   114→   114→  const [editingId, setEditingId] = useState<string | null>(null)
+   115→   115→  const [form, setForm] = useState<ProductFormData>(emptyForm)
+   116→   116→  const [saving, setSaving] = useState(false)
+   117→   117→  const [resubmittingId, setResubmittingId] = useState<string | null>(null)
+   118→   118→  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+   119→   119→
+   120→   120→  const fetchProducts = useCallback(async () => {
+   121→   121→    setLoading(true)
+   122→   122→    try {
+   123→   123→      const res = await fetch('/api/seller')
+   124→   124→      if (res.ok) {
+   125→   125→        const data = await res.json()
+   126→   126→        setProducts(data.products || [])
+   127→   127→        setCategories(data.categories || [])
+   128→   128→      } else {
+   129→   129→        const err = await res.json().catch(() => ({}))
+   130→   130→        console.error('[fetchProducts] Error:', res.status, err)
+   131→   131→        setProducts([])
+   132→   132→        setCategories([])
+   133→   133→        if (res.status === 401) {
+   134→   134→          toast.error('Vui lòng đăng nhập lại')
+   135→   135→        } else {
+   136→   136→          toast.error(err.error || 'Lỗi tải sản phẩm')
+   137→   137→        }
+   138→   138→      }
+   139→   139→    } catch (e) {
+   140→   140→      console.error('[fetchProducts] Catch:', e)
+   141→   141→      setProducts([])
+   142→   142→      setCategories([])
+   143→   143→      toast.error('Lỗi kết nối server')
+   144→   144→    } finally {
+   145→   145→      setLoading(false)
+   146→   146→    }
+   147→   147→  }, [])
+   148→   148→
+   149→   149→  useEffect(() => { fetchProducts() }, [fetchProducts])
+   150→   150→
+   151→   151→  // Auth guard
+   152→   152→  if (authStatus === 'unauthenticated') {
+   153→   153→    return <LoginGuard />
+   154→   154→  }
+   155→   155→
+   156→   156→  // Derive counts
+   157→   157→  const pendingCount = products.filter((p) => p.reviewStatus === 'PENDING').length
+   158→   158→  const approvedCount = products.filter((p) => p.reviewStatus === 'APPROVED').length
+   159→   159→  const rejectedCount = products.filter((p) => p.reviewStatus === 'REJECTED').length
+   160→   160→
+   161→   161→  // Filtered products: search + status filter
+   162→   162→  const filtered = products.filter((p) => {
+   163→   163→    const matchesSearch =
+   164→   164→      p.title.toLowerCase().includes(searchQ.toLowerCase()) ||
+   165→   165→      p.format.toLowerCase().includes(searchQ.toLowerCase())
+   166→   166→    const matchesStatus = statusFilter === 'ALL' || p.reviewStatus === statusFilter
+   167→   167→    return matchesSearch && matchesStatus
+   168→   168→  })
+   169→   169→
+   170→   170→  // Toggle publish
+   171→   171→  const togglePublish = async (product: Product) => {
+   172→   172→    try {
+   173→   173→      const res = await fetch(`/api/products/${product.id}`, {
+   174→   174→        method: 'PUT',
+   175→   175→        headers: { 'Content-Type': 'application/json' },
+   176→   176→        body: JSON.stringify({ ...product, published: !product.published }),
+   177→   177→      })
+   178→   178→      if (res.ok) {
+   179→   179→        toast.success(product.published ? 'Đã ẩn sản phẩm' : 'Đã đăng sản phẩm')
+   180→   180→        await fetchProducts()
+   181→   181→      } else {
+   182→   182→        const err = await res.json().catch(() => ({}))
+   183→   183→        toast.error(err.error || `Lỗi cập nhật (${res.status})`)
+   184→   184→      }
+   185→   185→    } catch {
+   186→   186→      toast.error('Lỗi kết nối server')
+   187→   187→    }
+   188→   188→  }
+   189→   189→
+   190→   190→  // Delete product
+   191→   191→  const deleteProduct = async (id: string) => {
+   192→   192→    try {
+   193→   193→      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' })
+   194→   194→      if (res.ok) {
+   195→   195→        toast.success('Đã xóa sản phẩm')
+   196→   196→        setDeleteConfirm(null)
+   197→   197→        await fetchProducts()
+   198→   198→      } else {
+   199→   199→        const err = await res.json().catch(() => ({}))
+   200→   200→        toast.error(err.error || `Lỗi xóa sản phẩm (${res.status})`)
+   201→   201→      }
+   202→   202→    } catch {
+   203→   203→      toast.error('Lỗi kết nối server')
+   204→   204→    }
+   205→   205→  }
+   206→   206→
+   207→   207→  // Re-submit a rejected product for review
+   208→   208→  const handleResubmit = async (id: string) => {
+   209→   209→    setResubmittingId(id)
+   210→   210→    try {
+   211→   211→      const res = await fetch(`/api/products/${id}`, {
+   212→   212→        method: 'PUT',
+   213→   213→        headers: { 'Content-Type': 'application/json' },
+   214→   214→        body: JSON.stringify({ reviewStatus: 'PENDING', reviewNote: null }),
+   215→   215→      })
+   216→   216→      if (res.ok) {
+   217→   217→        toast.success('Đã gửi lại để duyệt')
+   218→   218→        await fetchProducts()
+   219→   219→      } else {
+   220→   220→        const err = await res.json().catch(() => ({}))
+   221→   221→        toast.error(err.error || `Lỗi gửi lại (${res.status})`)
+   222→   222→      }
+   223→   223→    } catch {
+   224→   224→      toast.error('Lỗi kết nối server')
+   225→   225→    } finally {
+   226→   226→      setResubmittingId(null)
+   227→   227→    }
+   228→   228→  }
+   229→   229→
+   230→   230→  // Open form for edit
+   231→   231→  const openEdit = (product: Product) => {
+   232→   232→    setEditingId(product.id)
+   233→   233→    setForm({
+   234→   234→      title: product.title,
+   235→   235→      description: product.description,
+   236→   236→      price: product.price,
+   237→   237→      isFree: product.isFree,
+   238→   238→      format: product.format,
+   239→   239→      categorySlug: product.categorySlug,
+   240→   240→      thumbnail: product.thumbnail,
+   241→   241→      duration: product.duration || '',
+   242→   242→      tags: product.tags,
+   243→   243→      featured: product.featured,
+   244→   244→      published: product.published,
+   245→   245→    })
+   246→   246→    setShowForm(true)
+   247→   247→  }
+   248→   248→
+   249→   249→  // Open form for create
+   250→   250→  const openCreate = () => {
+   251→   251→    setEditingId(null)
+   252→   252→    setForm(emptyForm)
+   253→   253→    setShowForm(true)
+   254→   254→  }
+   255→   255→
+   256→   256→  // Save (create or update)
+   257→   257→  const handleSave = async () => {
+   258→   258→    if (!form.title.trim()) {
+   259→   259→      toast.error('Vui lòng nhập tên sản phẩm')
+   260→   260→      return
+   261→   261→    }
+   262→   262→    if (!form.categorySlug) {
+   263→   263→      toast.error('Vui lòng chọn danh mục')
+   264→   264→      return
+   265→   265→    }
+   266→   266→    setSaving(true)
+   267→   267→    try {
+   268→   268→      let success = false
+   269→   269→      if (editingId) {
+   270→   270→        const res = await fetch(`/api/products/${editingId}`, {
+   271→   271→          method: 'PUT',
+   272→   272→          headers: { 'Content-Type': 'application/json' },
+   273→   273→          body: JSON.stringify(form),
+   274→   274→        })
+   275→   275→        if (res.ok) {
+   276→   276→          toast.success('Đã cập nhật sản phẩm')
+   277→   277→          success = true
+   278→   278→        } else {
+   279→   279→          const err = await res.json().catch(() => ({}))
+   280→   280→          toast.error(err.error || `Lỗi cập nhật (${res.status})`)
+   281→   281→        }
+   282→   282→      } else {
+   283→   283→        // New products always start as PENDING for review
+   284→   284→        const res = await fetch('/api/products', {
+   285→   285→          method: 'POST',
+   286→   286→          headers: { 'Content-Type': 'application/json' },
+   287→   287→          body: JSON.stringify({ ...form, reviewStatus: 'PENDING' }),
+   288→   288→        })
+   289→   289→        if (res.ok) {
+   290→   290→          toast.success('Đã đăng sản phẩm mới — đang chờ duyệt')
+   291→   291→          success = true
+   292→   292→        } else {
+   293→   293→          const err = await res.json().catch(() => ({}))
+   294→   294→          toast.error(err.error || `Lỗi đăng sản phẩm (${res.status})`)
+   295→   295→        }
+   296→   296→      }
+   297→   297→      if (success) {
+   298→   298→        setShowForm(false)
+   299→   299→        await fetchProducts()
+   300→   300→      }
+   301→   301→    } catch (e) {
+   302→   302→      console.error('[handleSave] Error:', e)
+   303→   303→      toast.error('Lỗi kết nối server')
+   304→   304→    } finally {
+   305→   305→      setSaving(false)
+   306→   306→    }
+   307→   307→  }
+   308→   308→
+   309→   309→  const thumbnailPresets = [
+   310→   310→    'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
+   311→   311→    'https://images.unsplash.com/photo-1558618660-7c0c3b1a4e93?w=640&h=360&fit=crop',
+   312→   312→    'https://images.unsplash.com/photo-1511379928520-ba4c0e00a8db?w=640&h=360&fit=crop',
+   313→   313→    'https://images.unsplash.com/photo-1516289587443-44c3f05e5c4f?w=640&h=360&fit=crop',
+   314→   314→    'https://images.unsplash.com/photo-1584900501285-24ab11a14c6c?w=640&h=360&fit=crop',
+   315→   315→    'https://images.unsplash.com/photo-1493225452364-bab4a9fcd274?w=640&h=360&fit=crop',
+   316→   316→  ]
+   317→   317→
+   318→   318→  const statusFilterOptions: { value: StatusFilter; label: string; count: number }[] = [
+   319→   319→    { value: 'ALL', label: 'Tất cả', count: products.length },
+   320→   320→    { value: 'PENDING', label: 'Chờ duyệt', count: pendingCount },
+   321→   321→    { value: 'APPROVED', label: 'Đã duyệt', count: approvedCount },
+   322→   322→    { value: 'REJECTED', label: 'Bị từ chối', count: rejectedCount },
+   323→   323→  ]
+   324→   324→
+   325→   325→  return (
+   326→   326→    <div className="min-h-screen bg-[#0f0f0f] text-[#f1f1f1]">
+   327→   327→      {/* Header */}
+   328→   328→      <div className="border-b border-[#303030] bg-[#0f0f0f] px-4 py-4 md:px-6">
+   329→   329→        <div className="mx-auto max-w-[1200px]">
+   330→   330→          <div className="flex items-center justify-between">
+   331→   331→            <div className="flex items-center gap-3">
+   332→   332→              <Button
+   333→   333→                variant="ghost"
+   334→   334→                size="icon"
+   335→   335→                className="text-[#aaa] hover:bg-[#272727] hover:text-white"
+   336→   336→                onClick={() => setActiveCategory('all')}
+   337→   337→              >
+   338→   338→                <ArrowLeft className="h-5 w-5" />
+   339→   339→              </Button>
+   340→   340→              <div>
+   341→   341→                <h1 className="text-lg font-bold text-white">Seller Dashboard</h1>
+   342→   342→                <p className="text-xs text-[#888]">Quản lý sản phẩm của bạn</p>
+   343→   343→              </div>
+   344→   344→            </div>
+   345→   345→            <div className="flex items-center gap-2">
+   346→   346→              <div className="hidden items-center gap-2 rounded-lg bg-[#1f1f1f] px-3 py-2 sm:flex">
+   347→   347→                <Search className="h-4 w-4 text-[#888]" />
+   348→   348→                <input
+   349→   349→                  value={searchQ}
+   350→   350→                  onChange={(e) => setSearchQ(e.target.value)}
+   351→   351→                  placeholder="Tìm sản phẩm..."
+   352→   352→                  className="bg-transparent text-sm text-white outline-none placeholder:text-[#666]"
+   353→   353→                />
+   354→   354→              </div>
+   355→   355→              <Button
+   356→   356→                className="gap-2 rounded-lg bg-[#f5a623] px-4 text-black hover:bg-[#e09515]"
+   357→   357→                onClick={openCreate}
+   358→   358→              >
+   359→   359→                <Plus className="h-4 w-4" />
+   360→   360→                <span className="hidden sm:inline">Đăng sản phẩm</span>
+   361→   361→              </Button>
+   362→   362→            </div>
+   363→   363→          </div>
+   364→   364→
+   365→   365→          {/* Stats bar */}
+   366→   366→          <div className="mt-4 flex flex-wrap gap-4">
+   367→   367→            <div className="rounded-lg bg-[#1f1f1f] px-4 py-2">
+   368→   368→              <span className="text-xs text-[#888]">Tổng</span>
+   369→   369→              <span className="ml-2 text-lg font-bold text-white">{products.length}</span>
+   370→   370→            </div>
+   371→   371→            <div className="rounded-lg bg-[#1f1f1f] px-4 py-2">
+   372→   372→              <span className="text-xs text-[#888]">Đăng</span>
+   373→   373→              <span className="ml-2 text-lg font-bold text-[#3fb950]">{products.filter((p) => p.published).length}</span>
+   374→   374→            </div>
+   375→   375→            <div className="rounded-lg bg-[#1f1f1f] px-4 py-2">
+   376→   376→              <span className="text-xs text-[#888]">Ẩn</span>
+   377→   377→              <span className="ml-2 text-lg font-bold text-[#ff6b6b]">{products.filter((p) => !p.published).length}</span>
+   378→   378→            </div>
+   379→   379→            <div className="rounded-lg bg-[#1f1f1f] px-4 py-2">
+   380→   380→              <span className="text-xs text-[#888]">Miễn phí</span>
+   381→   381→              <span className="ml-2 text-lg font-bold text-[#3ea6ff]">{products.filter((p) => p.isFree).length}</span>
+   382→   382→            </div>
+   383→   383→            <div className="rounded-lg bg-[#1f1f1f] px-4 py-2">
+   384→   384→              <span className="text-xs text-amber-400">Chờ duyệt</span>
+   385→   385→              <span className="ml-2 text-lg font-bold text-amber-400">{pendingCount}</span>
+   386→   386→            </div>
+   387→   387→          </div>
+   388→   388→        </div>
+   389→   389→      </div>
+   390→   390→
+   391→   391→      <div className="mx-auto max-w-[1200px] px-4 py-6 md:px-6">
+   392→   392→        {/* Pending products notice banner */}
+   393→   393→        {!loading && pendingCount > 0 && (
+   394→   394→          <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+   395→   395→            <AlertCircle className="h-5 w-5 shrink-0 text-amber-400" />
+   396→   396→            <span className="text-sm font-medium text-amber-300">
+   397→   397→              Bạn có <strong>{pendingCount}</strong> sản phẩm đang chờ duyệt
+   398→   398→            </span>
+   399→   399→          </div>
+   400→   400→        )}
+   401→   401→
+   402→   402→        {/* Status filter tabs */}
+   403→   403→        <div className="mb-4 flex flex-wrap gap-2">
+   404→   404→          {statusFilterOptions.map((opt) => (
+   405→   405→            <button
+   406→   406→              key={opt.value}
+   407→   407→              onClick={() => setStatusFilter(opt.value)}
+   408→   408→              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+   409→   409→                statusFilter === opt.value
+   410→   410→                  ? 'bg-[#f5a623] text-black'
+   411→   411→                  : 'bg-[#1f1f1f] text-[#aaa] hover:bg-[#272727] hover:text-white'
+   412→   412→              }`}
+   413→   413→            >
+   414→   414→              {opt.label}
+   415→   415→              <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-xs ${
+   416→   416→                statusFilter === opt.value
+   417→   417→                  ? 'bg-black/20 text-black'
+   418→   418→                  : 'bg-[#303030] text-[#888]'
+   419→   419→              }`}>
+   420→   420→                {opt.count}
+   421→   421→              </span>
+   422→   422→            </button>
+   423→   423→          ))}
+   424→   424→        </div>
+   425→   425→
+   426→   426→        {/* Product Form Modal */}
+   427→   427→        {showForm && (
+   428→   428→          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowForm(false)}>
+   429→   429→            <div
+   430→   430→              className="mx-4 max-h-[90vh] w-full max-w-[700px] overflow-y-auto rounded-2xl border border-[#303030] bg-[#0f0f0f] p-6 shadow-2xl"
+   431→   431→              onClick={(e) => e.stopPropagation()}
+   432→   432→            >
+   433→   433→              <div className="mb-4 flex items-center justify-between">
+   434→   434→                <h2 className="text-lg font-bold text-white">
+   435→   435→                  {editingId ? 'Chỉnh sửa sản phẩm' : 'Đăng sản phẩm mới'}
+   436→   436→                </h2>
+   437→   437→                <Button variant="ghost" size="icon" className="text-[#aaa] hover:bg-[#272727]" onClick={() => setShowForm(false)}>
+   438→   438→                  <X className="h-5 w-5" />
+   439→   439→                </Button>
+   440→   440→              </div>
+   441→   441→
+   442→   442→              {/* New product review notice */}
+   443→   443→              {!editingId && (
+   444→   444→                <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+   445→   445→                  <AlertCircle className="h-4 w-4 shrink-0" />
+   446→   446→                  Sản phẩm mới sẽ được gửi để duyệt trước khi hiển thị công khai.
+   447→   447→                </div>
+   448→   448→              )}
+   449→   449→
+   450→   450→              <div className="space-y-4">
+   451→   451→                <div>
+   452→   452→                  <label className="mb-1 block text-sm font-medium text-[#ccc]">Tên sản phẩm *</label>
+   453→   453→                  <Input
+   454→   454→                    value={form.title}
+   455→   455→                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+   456→   456→                    placeholder="VD: TapeDrift JSFX - Saturation ấm cho Vocal"
+   457→   457→                    className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
+   458→   458→                  />
+   459→   459→                </div>
+   460→   460→
+   461→   461→                <div>
+   462→   462→                  <label className="mb-1 block text-sm font-medium text-[#ccc]">Mô tả</label>
+   463→   463→                  <textarea
+   464→   464→                    value={form.description}
+   465→   465→                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+   466→   466→                    placeholder="Mô tả chi tiết sản phẩm..."
+   467→   467→                    rows={3}
+   468→   468→                    className="w-full rounded-lg border border-[#303030] bg-[#1a1a1a] p-3 text-sm text-white outline-none placeholder:text-[#666] focus:border-[#3ea6ff]"
+   469→   469→                  />
+   470→   470→                </div>
+   471→   471→
+   472→   472→                <div className="flex gap-4">
+   473→   473→                  <div className="flex-1">
+   474→   474→                    <label className="mb-1 block text-sm font-medium text-[#ccc]">Giá ($)</label>
+   475→   475→                    <Input
+   476→   476→                      type="number"
+   477→   477→                      value={form.isFree ? 0 : form.price}
+   478→   478→                      onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
+   479→   479→                      disabled={form.isFree}
+   480→   480→                      className="border-[#303030] bg-[#1a1a1a] text-white disabled:opacity-50"
+   481→   481→                    />
+   482→   482→                  </div>
+   483→   483→                  <div className="flex items-end gap-2">
+   484→   484→                    <button
+   485→   485→                      className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition-all ${
+   486→   486→                        form.isFree
+   487→   487→                          ? 'border-[#3fb950] bg-[#3fb950]/20 text-[#3fb950]'
+   488→   488→                          : 'border-[#303030] bg-[#1a1a1a] text-[#888] hover:border-[#555]'
+   489→   489→                      }`}
+   490→   490→                      onClick={() => setForm({ ...form, isFree: !form.isFree, price: form.isFree ? form.price : 0 })}
+   491→   491→                    >
+   492→   492→                      {form.isFree ? '✓ Miễn phí' : 'Miễn phí'}
+   493→   493→                    </button>
+   494→   494→                  </div>
+   495→   495→                </div>
+   496→   496→
+   497→   497→                <div className="flex gap-4">
+   498→   498→                  <div className="flex-1">
+   499→   499→                    <label className="mb-1 block text-sm font-medium text-[#ccc]">Định dạng</label>
+   500→   500→                    <select
+   501→   501→                      value={form.format}
+   502→   502→                      onChange={(e) => setForm({ ...form, format: e.target.value })}
+   503→   503→                      className="w-full rounded-lg border border-[#303030] bg-[#1a1a1a] p-2.5 text-sm text-white outline-none focus:border-[#3ea6ff]"
+   504→   504→                    >
+   505→   505→                      {formatOptions.map((f) => (
+   506→   506→                        <option key={f} value={f}>{f}</option>
+   507→   507→                      ))}
+   508→   508→                    </select>
+   509→   509→                  </div>
+   510→   510→                  <div className="flex-1">
+   511→   511→                    <label className="mb-1 block text-sm font-medium text-[#ccc]">Danh mục</label>
+   512→   512→                    <select
+   513→   513→                      value={form.categorySlug}
+   514→   514→                      onChange={(e) => setForm({ ...form, categorySlug: e.target.value })}
+   515→   515→                      className="w-full rounded-lg border border-[#303030] bg-[#1a1a1a] p-2.5 text-sm text-white outline-none focus:border-[#3ea6ff]"
+   516→   516→                    >
+   517→   517→                      {categories.map((c) => (
+   518→   518→                        <option key={c.slug} value={c.slug}>{c.name}</option>
+   519→   519→                      ))}
+   520→   520→                    </select>
+   521→   521→                  </div>
+   522→   522→                </div>
+   523→   523→
+   524→   524→                <div>
+   525→   525→                  <label className="mb-1 block text-sm font-medium text-[#ccc]">Thumbnail URL</label>
+   526→   526→                  <Input
+   527→   527→                    value={form.thumbnail}
+   528→   528→                    onChange={(e) => setForm({ ...form, thumbnail: e.target.value })}
+   529→   529→                    placeholder="https://..."
+   530→   530→                    className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
+   531→   531→                  />
+   532→   532→                  <div className="mt-2 flex gap-2 overflow-x-auto">
+   533→   533→                    {thumbnailPresets.map((url, i) => (
+   534→   534→                      <button
+   535→   535→                        key={i}
+   536→   536→                        className={`h-12 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${form.thumbnail === url ? 'border-[#f5a623]' : 'border-transparent'}`}
+   537→   537→                        onClick={() => setForm({ ...form, thumbnail: url })}
+   538→   538→                      >
+   539→   539→                        <img src={url} alt="" className="h-full w-full object-cover" />
+   540→   540→                      </button>
+   541→   541→                    ))}
+   542→   542→                  </div>
+   543→   543→                  {form.thumbnail && (
+   544→   544→                    <div className="mt-2 aspect-video w-full max-w-[300px] overflow-hidden rounded-lg bg-[#333]">
+   545→   545→                      <img src={form.thumbnail} alt="Preview" className="h-full w-full object-cover" />
+   546→   546→                    </div>
+   547→   547→                  )}
+   548→   548→                </div>
+   549→   549→
+   550→   550→                <div className="flex gap-4">
+   551→   551→                  <div className="flex-1">
+   552→   552→                    <label className="mb-1 block text-sm font-medium text-[#ccc]">Thời lượng video</label>
+   553→   553→                    <Input
+   554→   554→                      value={form.duration}
+   555→   555→                      onChange={(e) => setForm({ ...form, duration: e.target.value })}
+   556→   556→                      placeholder="12:45"
+   557→   557→                      className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
+   558→   558→                    />
+   559→   559→                  </div>
+   560→   560→                  <div className="flex-1">
+   561→   561→                    <label className="mb-1 block text-sm font-medium text-[#ccc]">Tags (cách dấu phẩy)</label>
+   562→   562→                    <Input
+   563→   563→                      value={form.tags}
+   564→   564→                      onChange={(e) => setForm({ ...form, tags: e.target.value })}
+   565→   565→                      placeholder="saturation,tape,vocal"
+   566→   566→                      className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
+   567→   567→                    />
+   568→   568→                  </div>
+   569→   569→                </div>
+   570→   570→
+   571→   571→                <div className="flex gap-4">
+   572→   572→                  <button
+   573→   573→                    className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition-all ${
+   574→   574→                      form.featured
+   575→   575→                        ? 'border-[#f5a623] bg-[#f5a623]/20 text-[#f5a623]'
+   576→   576→                        : 'border-[#303030] bg-[#1a1a1a] text-[#888] hover:border-[#555]'
+   577→   577→                    }`}
+   578→   578→                    onClick={() => setForm({ ...form, featured: !form.featured })}
+   579→   579→                  >
+   580→   580→                    {form.featured ? '✓ Nổi bật' : 'Nổi bật'}
+   581→   581→                  </button>
+   582→   582→                  <button
+   583→   583→                    className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition-all ${
+   584→   584→                      form.published
+   585→   585→                        ? 'border-[#3fb950] bg-[#3fb950]/20 text-[#3fb950]'
+   586→   586→                        : 'border-[#303030] bg-[#1a1a1a] text-[#888] hover:border-[#555]'
+   587→   587→                    }`}
+   588→   588→                    onClick={() => setForm({ ...form, published: !form.published })}
+   589→   589→                  >
+   590→   590→                    {form.published ? '✓ Đăng ngay' : 'Lưu nháp'}
+   591→   591→                  </button>
+   592→   592→                </div>
+   593→   593→
+   594→   594→                <Separator className="bg-[#303030]" />
+   595→   595→
+   596→   596→                <div className="flex gap-3">
+   597→   597→                  <Button
+   598→   598→                    variant="ghost"
+   599→   599→                    className="flex-1 text-[#aaa] hover:bg-[#272727] hover:text-white"
+   600→   600→                    onClick={() => setShowForm(false)}
+   601→   601→                  >
+   602→   602→                    Hủy
+   603→   603→                  </Button>
+   604→   604→                  <Button
+   605→   605→                    className="flex-1 gap-2 rounded-lg bg-[#f5a623] text-black hover:bg-[#e09515]"
+   606→   606→                    onClick={handleSave}
+   607→   607→                    disabled={saving}
+   608→   608→                  >
+   609→   609→                    <Save className="h-4 w-4" />
+   610→   610→                    {saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Đăng sản phẩm'}
+   611→   611→                  </Button>
+   612→   612→                </div>
+   613→   613→              </div>
+   614→   614→            </div>
+   615→   615→          </div>
+   616→   616→        )}
+   617→   617→
+   618→   618→        {/* Delete Confirm */}
+   619→   619→        {deleteConfirm && (
+   620→   620→          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setDeleteConfirm(null)}>
+   621→   621→            <div className="mx-4 w-full max-w-[400px] rounded-2xl border border-[#303030] bg-[#0f0f0f] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+   622→   622→              <h3 className="text-lg font-bold text-white">Xóa sản phẩm?</h3>
+   623→   623→              <p className="mt-2 text-sm text-[#aaa]">Hành động này không thể hoàn tác. Sản phẩm sẽ bị xóa vĩnh viễn.</p>
+   624→   624→              <div className="mt-4 flex gap-3">
+   625→   625→                <Button variant="ghost" className="flex-1 text-[#aaa] hover:bg-[#272727]" onClick={() => setDeleteConfirm(null)}>
+   626→   626→                  Hủy
+   627→   627→                </Button>
+   628→   628→                <Button className="flex-1 bg-red-600 text-white hover:bg-red-700" onClick={() => deleteProduct(deleteConfirm)}>
+   629→   629→                  Xóa vĩnh viễn
+   630→   630→                </Button>
+   631→   631→              </div>
+   632→   632→            </div>
+   633→   633→          </div>
+   634→   634→        )}
+   635→   635→
+   636→   636→        {/* Product List Table */}
+   637→   637→        {loading ? (
+   638→   638→          <div className="space-y-3">
+   639→   639→            {Array.from({ length: 5 }).map((_, i) => (
+   640→   640→              <Skeleton key={i} className="h-20 w-full rounded-lg bg-[#1f1f1f]" />
+   641→   641→            ))}
+   642→   642→          </div>
+   643→   643→        ) : filtered.length === 0 ? (
+   644→   644→          <div className="flex flex-col items-center gap-3 py-20 text-[#888]">
+   645→   645→            <Package className="h-16 w-16 opacity-30" />
+   646→   646→            <p className="text-lg font-medium">
+   647→   647→              {searchQ || statusFilter !== 'ALL'
+   648→   648→                ? 'Không tìm thấy sản phẩm'
+   649→   649→                : 'Chưa có sản phẩm'}
+   650→   650→            </p>
+   651→   651→            <Button className="gap-2 rounded-lg bg-[#f5a623] text-black hover:bg-[#e09515]" onClick={openCreate}>
+   652→   652→              <Plus className="h-4 w-4" />
+   653→   653→              Đăng sản phẩm đầu tiên
+   654→   654→            </Button>
+   655→   655→          </div>
+   656→   656→        ) : (
+   657→   657→          <div className="space-y-2">
+   658→   658→            {filtered.map((product) => (
+   659→   659→              <div
+   660→   660→                key={product.id}
+   661→   661→                className={`group rounded-xl border border-[#303030] bg-[#1a1a1a] p-4 transition-all hover:border-[#444] ${!product.published ? 'opacity-60' : ''}`}
+   662→   662→              >
+   663→   663→                <div className="flex items-center gap-4">
+   664→   664→                  <img
+   665→   665→                    src={product.thumbnail}
+   666→   666→                    alt={product.title}
+   667→   667→                    className="hidden h-14 w-24 shrink-0 rounded-lg object-cover sm:block"
+   668→   668→                  />
+   669→   669→                  <div className="flex-1 space-y-1">
+   670→   670→                    <div className="flex items-center gap-2">
+   671→   671→                      <h3 className="truncate text-sm font-medium text-[#f1f1f1]">{product.title}</h3>
+   672→   672→                      {product.featured && <Star className="h-3.5 w-3.5 shrink-0 fill-[#f5a623] text-[#f5a623]" />}
+   673→   673→                      <ReviewStatusBadge status={product.reviewStatus} />
+   674→   674→                    </div>
+   675→   675→                    {/* Review note for rejected products */}
+   676→   676→                    {product.reviewStatus === 'REJECTED' && product.reviewNote && (
+   677→   677→                      <div className="mt-1 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300">
+   678→   678→                        <span className="font-medium">Lý do:</span> {product.reviewNote}
+   679→   679→                      </div>
+   680→   680→                    )}
+   681→   681→                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#aaa]">
+   682→   682→                      <Badge variant="outline" className="border-[#303030] bg-[#0f0f0f] text-[#3ea6ff]">
+   683→   683→                        {product.format}
+   684→   684→                      </Badge>
+   685→   685→                      <Badge variant="outline" className="border-[#303030] bg-[#0f0f0f] text-[#888]">
+   686→   686→                        {product.categorySlug}
+   687→   687→                      </Badge>
+   688→   688→                      <span>{formatViews(product.views)} views</span>
+   689→   689→                      <span>•</span>
+   690→   690→                      <span>{product.sales} đã bán</span>
+   691→   691→                    </div>
+   692→   692→                  </div>
+   693→   693→                  <div className="shrink-0 text-right">
+   694→   694→                    <span className={`text-sm font-bold ${product.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
+   695→   695→                      {product.isFree ? 'FREE' : `$${product.price}`}
+   696→   696→                    </span>
+   697→   697→                  </div>
+   698→   698→                  <div className="hidden shrink-0 md:block">
+   699→   699→                    <Badge className={`${product.published ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#ff6b6b]/20 text-[#ff6b6b]'}`}>
+   700→   700→                      {product.published ? 'Đang đăng' : 'Đã ẩn'}
+   701→   701→                    </Badge>
+   702→   702→                  </div>
+   703→   703→                  <div className="flex shrink-0 items-center gap-1">
+   704→   704→                    {/* Re-submit button for rejected products */}
+   705→   705→                    {product.reviewStatus === 'REJECTED' && (
+   706→   706→                      <Button
+   707→   707→                        variant="ghost"
+   708→   708→                        size="sm"
+   709→   709→                        className="h-8 gap-1 text-amber-400 hover:bg-amber-400/10"
+   710→   710→                        onClick={() => handleResubmit(product.id)}
+   711→   711→                        disabled={resubmittingId === product.id}
+   712→   712→                        title="Gửi lại để duyệt"
+   713→   713→                      >
+   714→   714→                        <RefreshCw className={`h-3.5 w-3.5 ${resubmittingId === product.id ? 'animate-spin' : ''}`} />
+   715→   715→                        <span className="text-xs">Gửi lại</span>
+   716→   716→                      </Button>
+   717→   717→                    )}
+   718→   718→                    <Button
+   719→   719→                      variant="ghost"
+   720→   720→                      size="icon"
+   721→   721→                      className={`h-8 w-8 ${product.published ? 'text-[#3fb950] hover:bg-[#3fb950]/10' : 'text-[#888] hover:bg-[#272727]'}`}
+   722→   722→                      onClick={() => togglePublish(product)}
+   723→   723→                      title={product.published ? 'Ẩn sản phẩm' : 'Đăng sản phẩm'}
+   724→   724→                    >
+   725→   725→                      {product.published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+   726→   726→                    </Button>
+   727→   727→                    <Button
+   728→   728→                      variant="ghost"
+   729→   729→                      size="icon"
+   730→   730→                      className="h-8 w-8 text-[#3ea6ff] hover:bg-[#3ea6ff]/10"
+   731→   731→                      onClick={() => openEdit(product)}
+   732→   732→                      title="Chỉnh sửa"
+   733→   733→                    >
+   734→   734→                      <Pencil className="h-4 w-4" />
+   735→   735→                    </Button>
+   736→   736→                    <Button
+   737→   737→                      variant="ghost"
+   738→   738→                      size="icon"
+   739→   739→                      className="h-8 w-8 text-red-400 hover:bg-red-400/10"
+   740→   740→                      onClick={() => setDeleteConfirm(product.id)}
+   741→   741→                      title="Xóa"
+   742→   742→                    >
+   743→   743→                      <Trash2 className="h-4 w-4" />
+   744→   744→                    </Button>
+   745→   745→                  </div>
+   746→   746→                </div>
+   747→   747→              </div>
+   748→   748→            ))}
+   749→   749→          </div>
+   750→   750→        )}
+   751→   751→      </div>
+   752→   752→    </div>
+   753→   753→  )
+   754→   754→}
+   755→   755→

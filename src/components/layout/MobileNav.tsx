@@ -1,11 +1,11 @@
 'use client'
 
-import { Home, Search, Heart, ShoppingCart, User, LayoutDashboard } from 'lucide-react'
+import { Home, Search, Heart, ShoppingCart, User, LayoutDashboard, Store } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useAppStore, useCartStore, useWishlistStore } from '@/stores'
 
 export function MobileNav() {
-  const { setActiveCategory, setCartDrawerOpen, setLoginModalOpen } = useAppStore()
+  const { setActiveCategory, setCartDrawerOpen, setLoginModalOpen, setSellerApplyModalOpen } = useAppStore()
   const cartCount = useCartStore((s) => s.totalItems())
   const wishlistCount = useWishlistStore((s) => s.items.length)
   const { data: session } = useSession()
@@ -48,13 +48,21 @@ export function MobileNav() {
             </span>
           )}
         </button>
-        {session?.user ? (
+        {session?.user && (session.user as any)?.isSeller ? (
           <button
             onClick={() => setActiveCategory('seller')}
             className="flex flex-col items-center gap-0.5 text-[#aaa]"
           >
             <LayoutDashboard className="h-5 w-5" />
             <span className="text-[10px]">Dashboard</span>
+          </button>
+        ) : session?.user ? (
+          <button
+            onClick={() => setSellerApplyModalOpen(true)}
+            className="flex flex-col items-center gap-0.5 text-[#f5a623]"
+          >
+            <Store className="h-5 w-5" />
+            <span className="text-[10px]">Seller</span>
           </button>
         ) : (
           <button

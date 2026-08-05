@@ -143,6 +143,7 @@ interface AppStore {
   loginModalOpen: boolean
   registerModalOpen: boolean
   forgotPasswordModalOpen: boolean
+  sellerApplyModalOpen: boolean
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
   setSearchQuery: (q: string) => void
@@ -154,6 +155,7 @@ interface AppStore {
   setLoginModalOpen: (open: boolean) => void
   setRegisterModalOpen: (open: boolean) => void
   setForgotPasswordModalOpen: (open: boolean) => void
+  setSellerApplyModalOpen: (open: boolean) => void
   sortBy: 'latest' | 'popular' | 'price-asc' | 'price-desc' | 'rating' | 'best-selling'
   setSortBy: (s: AppStore['sortBy']) => void
 }
@@ -169,6 +171,7 @@ export const useAppStore = create<AppStore>()((set) => ({
   loginModalOpen: false,
   registerModalOpen: false,
   forgotPasswordModalOpen: false,
+  sellerApplyModalOpen: false,
   sortBy: 'latest',
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -181,5 +184,6 @@ export const useAppStore = create<AppStore>()((set) => ({
   setLoginModalOpen: (open) => set({ loginModalOpen: open }),
   setRegisterModalOpen: (open) => set({ registerModalOpen: open }),
   setForgotPasswordModalOpen: (open) => set({ forgotPasswordModalOpen: open }),
+  setSellerApplyModalOpen: (open) => set({ sellerApplyModalOpen: open }),
   setSortBy: (s) => set({ sortBy: s }),
 }))
