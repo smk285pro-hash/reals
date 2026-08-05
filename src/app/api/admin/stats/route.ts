@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
 
     const [
       totalUsers, totalSellers, totalProducts, publishedProducts,
-      pendingProducts, totalRevenue, recentUsers, recentProducts
+      pendingProducts, pendingApplications, revenueAgg,
+      recentUsers, recentProducts
     ] = await Promise.all([
       db.user.count(),
       db.user.count({ where: { isSeller: true } }),
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       publishedProducts,
       pendingProducts,
       pendingApplications,
-      totalRevenue: totalRevenue._sum.price || 0,
+      totalRevenue: revenueAgg._sum.price || 0,
       recentUsers,
       recentProducts,
     })
