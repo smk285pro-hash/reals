@@ -22,6 +22,8 @@ async function ensureAdminRole(email: string) {
   }
 }
 
+const isProduction = process.env.NODE_ENV === 'production'
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   providers: [
@@ -29,9 +31,9 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-      allowDangerousEmailAccountLinking: true, // Allow linking Google account to existing email
+      allowDangerousEmailAccountLinking: true,
     }),
-    // Credentials — fallback for dev/demo, disabled in production if Google is configured
+    // Credentials — fallback for dev/demo
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -40,7 +42,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         // Block credential login for admin account in production
-        if (process.env.NODE_ENV === 'production' && OWNER_EMAILS.includes(credentials?.email?.toLowerCase() || '')) {
+        if (isProduction && OWNER_EMAILS.includes(credentials?.email?.toLowerCase() || '')) {
           throw new Error('Admin phải đăng nhập bằng Google để bảo mật')
         }
 
@@ -74,8 +76,51 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  // Cookie config — critical for Vercel production
+  cookies: {
+    sessionToken: {
+      name: `${isProduction ? '__Host-' : ''}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: isProduction,
+        domain: isProduction ? '.reals.media' : undefined,
+      },
+    },
+    callbackUrl: {
+      name: `${isProduction ? '__Host-' : ''}next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: isProduction,
+        domain: isProduction ? '.reals.media' : undefined,
+      },
+    },
+    csrfToken: {
+      name: `${isProduction ? '__Host-' : ''}next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: isProduction,
+        domain: isProduction ? '.reals.media' : undefined,
+      },
+    },
+    pkceCodeVerifier: {
+      name: `${isProduction ? '__Host-' : ''}next-auth.pkce.code_verifier`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: isProduction,
+        domain: isProduction ? '.reals.media' : undefined,
+      },
+    },
+  },
   pages: {
-    signIn: '/', // Use modal instead of redirect
+    signIn: '/',
     error: '/',
   },
   callbacks: {
@@ -104,6 +149,19 @@ export const authOptions: NextAuthOptions = {
           token.picture = dbUser.image || dbUser.avatar || token.picture
         }
       }
+      // Always refresh role on every JWT read (ensures role changes take effect)
+      if (token.email && !account) {
+        try {
+          const dbUser = await db.user.findUnique({
+            where: { email: token.email as string },
+            select: { role: true, isSeller: true },
+          })
+          if (dbUser) {
+            token.role = dbUser.role
+            token.isSeller = dbUser.isSeller
+          }
+        } catch {}
+      }
       return token
     },
     async session({ session, token }) {
@@ -116,7 +174,7 @@ export const authOptions: NextAuthOptions = {
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: !isProduction,
 }
 
 const handler = NextAuth(authOptions)
