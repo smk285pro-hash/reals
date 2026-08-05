@@ -5,24 +5,32 @@ import { db } from '@/lib/db'
 
 // GET products for the currently logged-in seller (own channel)
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
+  try {
+    const session = await getServerSession(authOptions)
 
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
+    }
+
+    const userId = (session.user as any).id
+    if (!userId) {
+      return NextResponse.json({ error: 'Phiên đăng nhập không hợp lệ' }, { status: 401 })
+    }
+
+    // Get only this user's products (including unpublished)
+    const [products, total, categories] = await Promise.all([
+      db.product.findMany({
+        where: { sellerId: userId },
+        include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      db.product.count({ where: { sellerId: userId } }),
+      db.category.findMany({ orderBy: { order: 'asc' } }),
+    ])
+
+    return NextResponse.json({ products, total, categories })
+  } catch (error: any) {
+    console.error('[GET /api/seller] Error:', error)
+    return NextResponse.json({ error: 'Lỗi tải sản phẩm' }, { status: 500 })
   }
-
-  const userId = (session.user as any).id
-
-  // Get only this user's products (including unpublished)
-  const [products, total, categories] = await Promise.all([
-    db.product.findMany({
-      where: { sellerId: userId },
-      include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },
-      orderBy: { createdAt: 'desc' },
-    }),
-    db.product.count({ where: { sellerId: userId } }),
-    db.category.findMany({ orderBy: { order: 'asc' } }),
-  ])
-
-  return NextResponse.json({ products, total, categories })
 }

@@ -35,7 +35,7 @@ const emptyForm: ProductFormData = {
   price: 0,
   isFree: false,
   format: 'JSFX',
-  categorySlug: 'jsfx',
+  categorySlug: 'effects',
   thumbnail: '',
   duration: '',
   tags: '',
@@ -125,9 +125,12 @@ export function SellerDashboard() {
       if (res.ok) {
         setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, published: !p.published } : p))
         toast.success(product.published ? 'Đã ẩn sản phẩm' : 'Đã đăng sản phẩm')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || `Lỗi cập nhật (${res.status})`)
       }
     } catch {
-      toast.error('Lỗi cập nhật')
+      toast.error('Lỗi kết nối server')
     }
   }
 
@@ -139,9 +142,12 @@ export function SellerDashboard() {
         setProducts((prev) => prev.filter((p) => p.id !== id))
         toast.success('Đã xóa sản phẩm')
         setDeleteConfirm(null)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || `Lỗi xóa sản phẩm (${res.status})`)
       }
     } catch {
-      toast.error('Lỗi xóa sản phẩm')
+      toast.error('Lỗi kết nối server')
     }
   }
 
@@ -177,8 +183,13 @@ export function SellerDashboard() {
       toast.error('Vui lòng nhập tên sản phẩm')
       return
     }
+    if (!form.categorySlug) {
+      toast.error('Vui lòng chọn danh mục')
+      return
+    }
     setSaving(true)
     try {
+      let success = false
       if (editingId) {
         const res = await fetch(`/api/products/${editingId}`, {
           method: 'PUT',
@@ -189,6 +200,10 @@ export function SellerDashboard() {
           const updated = await res.json()
           setProducts((prev) => prev.map((p) => p.id === editingId ? updated : p))
           toast.success('Đã cập nhật sản phẩm')
+          success = true
+        } else {
+          const err = await res.json().catch(() => ({}))
+          toast.error(err.error || `Lỗi cập nhật (${res.status})`)
         }
       } else {
         const res = await fetch('/api/products', {
@@ -200,11 +215,15 @@ export function SellerDashboard() {
           const newProduct = await res.json()
           setProducts((prev) => [newProduct, ...prev])
           toast.success('Đã đăng sản phẩm mới')
+          success = true
+        } else {
+          const err = await res.json().catch(() => ({}))
+          toast.error(err.error || `Lỗi đăng sản phẩm (${res.status})`)
         }
       }
-      setShowForm(false)
+      if (success) setShowForm(false)
     } catch {
-      toast.error('Lỗi lưu sản phẩm')
+      toast.error('Lỗi kết nối server')
     } finally {
       setSaving(false)
     }

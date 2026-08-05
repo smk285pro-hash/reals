@@ -70,40 +70,64 @@ export async function GET(req: NextRequest) {
 
 // POST - Create new product (authenticated - assigns to logged-in user)
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
+  try {
+    const session = await getServerSession(authOptions)
 
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
+    }
+
+    const userId = (session.user as any).id
+    if (!userId) {
+      return NextResponse.json({ error: 'Phiên đăng nhập không hợp lệ, vui lòng đăng nhập lại' }, { status: 401 })
+    }
+
+    const body = await req.json()
+
+    if (!body.title?.trim()) {
+      return NextResponse.json({ error: 'Vui lòng nhập tên sản phẩm' }, { status: 400 })
+    }
+
+    // Verify category exists
+    if (body.categorySlug) {
+      const catExists = await db.category.findUnique({ where: { slug: body.categorySlug } })
+      if (!catExists) {
+        return NextResponse.json({ error: `Danh mục "${body.categorySlug}" không tồn tại` }, { status: 400 })
+      }
+    }
+
+    // Ensure the user is a seller
+    const user = await db.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      return NextResponse.json({ error: 'Không tìm thấy tài khoản' }, { status: 404 })
+    }
+    if (!user.isSeller) {
+      await db.user.update({ where: { id: userId }, data: { isSeller: true } })
+    }
+
+    const product = await db.product.create({
+      data: {
+        title: body.title.trim(),
+        description: body.description || '',
+        price: body.price || 0,
+        isFree: body.isFree || false,
+        format: body.format || 'JSFX',
+        categorySlug: body.categorySlug || 'effects',
+        thumbnail: body.thumbnail || 'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
+        videoUrl: body.videoUrl || null,
+        duration: body.duration || null,
+        tags: body.tags || '',
+        featured: body.featured || false,
+        published: body.published ?? true,
+        sellerId: userId, // Always assign to the logged-in user
+      },
+      include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },
+    })
+
+    return NextResponse.json(product, { status: 201 })
+  } catch (error: any) {
+    console.error('[POST /api/products] Error:', error)
+    const msg = error?.code === 'P2003' ? 'Danh mục không tồn tại' : 'Lỗi tạo sản phẩm'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
-
-  const userId = (session.user as any).id
-  const body = await req.json()
-
-  // Ensure the user is a seller
-  const user = await db.user.findUnique({ where: { id: userId } })
-  if (!user?.isSeller) {
-    // Auto-promote to seller on first product creation
-    await db.user.update({ where: { id: userId }, data: { isSeller: true } })
-  }
-
-  const product = await db.product.create({
-    data: {
-      title: body.title,
-      description: body.description || '',
-      price: body.price || 0,
-      isFree: body.isFree || false,
-      format: body.format || 'JSFX',
-      categorySlug: body.categorySlug || 'effects',
-      thumbnail: body.thumbnail || 'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
-      videoUrl: body.videoUrl || null,
-      duration: body.duration || null,
-      tags: body.tags || '',
-      featured: body.featured || false,
-      published: body.published ?? true,
-      sellerId: userId, // Always assign to the logged-in user
-    },
-    include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },
-  })
-
-  return NextResponse.json(product, { status: 201 })
 }
