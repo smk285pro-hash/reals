@@ -68,11 +68,14 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const inWishlist = isInWishlist(product.id)
   const badges = getProductBadges(product)
   const [copied, setCopied] = useState(false)
-  const [playing, setPlaying] = useState(false)
+  const [hovering, setHovering] = useState(false)
+  const [muted, setMuted] = useState(true)
 
-  // YouTube embed logic
+  // YouTube embed logic — auto-play if video exists
   const ytVideoId = product.videoUrl ? extractYouTubeVideoId(product.videoUrl) : null
-  const embedUrl = ytVideoId ? `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&rel=0` : null
+  const embedUrl = ytVideoId
+    ? `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&annotations=0&playsinline=1&disablekb=0&fs=1`
+    : null
 
   const initials = product.seller.name
     ?.split(' ')
@@ -100,51 +103,66 @@ export function ProductDetail({ product }: ProductDetailProps) {
       <div className="fixed inset-4 z-50 flex items-center justify-center sm:inset-8 md:inset-16">
         <div className="flex max-h-[90vh] w-full max-w-[900px] flex-col overflow-hidden rounded-2xl border border-[#303030] bg-[#0f0f0f] shadow-2xl md:flex-row">
           {/* Left - Video/Image */}
-          <div className="relative aspect-video w-full shrink-0 bg-black md:aspect-auto md:h-auto md:w-[55%]">
-            {playing && embedUrl ? (
-              // YouTube iframe player
-              <iframe
-                src={embedUrl}
-                title={product.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            ) : (
-              // Thumbnail with play button overlay (if YouTube video available)
-              <>
-                <img
-                  src={product.thumbnail}
-                  alt={product.title}
-                  className="h-full w-full object-cover"
+          <div
+            className="relative aspect-video w-full shrink-0 bg-black md:aspect-auto md:h-auto md:w-[55%]"
+            onMouseEnter={() => setHovering(true)}
+            onMouseLeave={() => setHovering(false)}
+          >
+            {ytVideoId ? (
+              // YouTube video: auto-play, no chrome. Custom controls appear on hover
+              <div className="relative h-full w-full overflow-hidden">
+                <iframe
+                  key={muted ? 'muted' : 'unmuted'}
+                  src={muted
+                    ? embedUrl!
+                    : `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&playsinline=1&fs=1`
+                  }
+                  title={product.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="h-full w-full border-0"
                 />
-                {ytVideoId && (
-                  <button
-                    onClick={() => setPlaying(true)}
-                    className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40"
-                  >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 shadow-lg transition-transform hover:scale-110">
-                      <Play className="h-6 w-6 fill-white text-white ml-0.5" />
-                    </div>
-                  </button>
+                {/* Custom overlay controls on hover */}
+                {hovering && (
+                  <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 bg-gradient-to-t from-black/80 to-transparent px-4 py-3">
+                    <button
+                      onClick={() => setMuted(!muted)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"
+                    >
+                      {muted ? (
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                      ) : (
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+                      )}
+                    </button>
+                    <a
+                      href={`https://www.youtube.com/watch?v=${ytVideoId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
+                    >
+                      <Youtube className="h-3.5 w-3.5" />
+                      YouTube
+                    </a>
+                  </div>
                 )}
-              </>
+              </div>
+            ) : (
+              // No video — just thumbnail
+              <img
+                src={product.thumbnail}
+                alt={product.title}
+                className="h-full w-full object-cover"
+              />
             )}
-            {product.duration && (
+            {product.duration && !ytVideoId && (
               <div className="absolute bottom-3 right-3 rounded bg-black/80 px-2 py-1 text-sm font-medium text-white">
                 {product.duration}
               </div>
             )}
-            {/* YouTube badge */}
-            {ytVideoId && !playing && (
-              <div className="absolute left-3 top-3 flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-xs font-bold text-white">
-                <Youtube className="h-3.5 w-3.5" />
-                YouTube
-              </div>
-            )}
             {/* Badges overlay */}
             {badges.length > 0 && (
-              <div className={`absolute ${ytVideoId && !playing ? 'left-3 top-10' : 'left-3 top-3'} flex gap-1`}>
+              <div className="absolute left-3 top-3 flex gap-1">
                 {badges.map((b) => (
                   <span key={b.label} className={`rounded px-2 py-1 text-xs font-bold ${b.color}`}>
                     {b.label}

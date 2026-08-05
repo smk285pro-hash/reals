@@ -63,10 +63,10 @@ export function HoverPreview({ product, children }: HoverPreviewProps) {
           <div className="relative mb-2 aspect-video w-full overflow-hidden rounded-lg bg-black">
             {showVideo && ytId ? (
               <iframe
-                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
+                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1&cc_load_policy=0&annotations=0`}
                 title={product.title}
                 allow="autoplay; encrypted-media"
-                className="h-full w-full border-0"
+                className="absolute -inset-[12%] h-[124%] w-[124%] border-0"
                 style={{ pointerEvents: 'none' }}
               />
             ) : (
