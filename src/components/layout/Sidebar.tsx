@@ -2,7 +2,7 @@
 
 import {
   Home, Flame, Clock, Tag, Heart, Download,
-  Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star, LayoutDashboard, LogIn
+  Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star, LayoutDashboard, LogIn, Store
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useAppStore, useWishlistStore } from '@/stores'
@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { SellerApplyModal } from '@/components/auth/SellerApplyModal'
 
 const mainLinks = [
   { icon: Home, label: 'Trang chủ', id: 'all' },
@@ -34,6 +35,7 @@ export function Sidebar() {
   const wishlistCount = useWishlistStore((s) => s.items.length)
   const { data: session } = useSession()
   const [categoriesExpanded, setCategoriesExpanded] = useState(true)
+  const [sellerApplyOpen, setSellerApplyOpen] = useState(false)
 
   if (!sidebarOpen) return null
 
@@ -164,7 +166,7 @@ export function Sidebar() {
 
           <Separator className="my-3 bg-[#303030]" />
 
-          {session?.user && (
+          {session?.user && (session.user as any)?.isSeller ? (
             <Button
               variant="ghost"
               className={`w-full justify-start gap-6 px-3 text-sm ${
@@ -180,7 +182,21 @@ export function Sidebar() {
               <LayoutDashboard className="h-5 w-5" />
               Seller Dashboard
             </Button>
-          )}
+          ) : session?.user ? (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-6 px-3 text-sm text-[#f5a623] hover:bg-[#1f1f1f]"
+              onClick={() => {
+                setSellerApplyOpen(true)
+                setSidebarOpen(false)
+              }}
+            >
+              <Store className="h-5 w-5" />
+              Đăng ký Seller
+            </Button>
+          ) : null}
+
+          <SellerApplyModal open={sellerApplyOpen} onOpenChange={setSellerApplyOpen} />
 
           <Button
             variant="ghost"

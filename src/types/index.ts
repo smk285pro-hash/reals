@@ -17,6 +17,8 @@ export interface Product {
   tags: string
   featured: boolean
   published: boolean
+  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewNote: string | null
   createdAt: string
   updatedAt: string
 }

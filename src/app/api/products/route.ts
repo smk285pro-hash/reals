@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Không tìm thấy tài khoản' }, { status: 404 })
     }
     if (!user.isSeller) {
-      await db.user.update({ where: { id: userId }, data: { isSeller: true } })
+      return NextResponse.json({ error: 'Bạn cần được duyệt làm seller trước khi đăng sản phẩm' }, { status: 403 })
     }
 
     const product = await db.product.create({
@@ -118,8 +118,9 @@ export async function POST(req: NextRequest) {
         duration: body.duration || null,
         tags: body.tags || '',
         featured: body.featured || false,
-        published: body.published ?? true,
-        sellerId: userId, // Always assign to the logged-in user
+        published: false, // Not published until approved
+        reviewStatus: 'PENDING', // All new products need review
+        sellerId: userId,
       },
       include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },
     })

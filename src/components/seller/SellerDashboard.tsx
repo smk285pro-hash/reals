@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, Search,
-  Package, ArrowLeft, Upload, Save, X, ChevronDown, LogIn
+  Package, ArrowLeft, Save, X, LogIn, RefreshCw, AlertCircle
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/stores'
 import type { Product, Category } from '@/types'
 import { toast } from 'sonner'
+
+type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+type StatusFilter = 'ALL' | ReviewStatus
 
 interface ProductFormData {
   title: string
@@ -40,7 +43,7 @@ const emptyForm: ProductFormData = {
   duration: '',
   tags: '',
   featured: false,
-  published: true,
+  published: false, // New products default to unpublished (draft) — review starts as PENDING
 }
 
 const formatOptions = ['JSFX', 'ReaScript Lua', 'ReaScript Python', 'C++ Extension', 'Template']
@@ -48,6 +51,30 @@ const formatOptions = ['JSFX', 'ReaScript Lua', 'ReaScript Python', 'C++ Extensi
 function formatViews(n: number): string {
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
   return n.toString()
+}
+
+/** Review status badge renderer */
+function ReviewStatusBadge({ status }: { status: ReviewStatus }) {
+  switch (status) {
+    case 'PENDING':
+      return (
+        <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30">
+          ⏳ Chờ duyệt
+        </Badge>
+      )
+    case 'APPROVED':
+      return (
+        <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+          ✓ Đã duyệt
+        </Badge>
+      )
+    case 'REJECTED':
+      return (
+        <Badge className="bg-red-500/20 text-red-400 border border-red-500/30">
+          ✗ Bị từ chối
+        </Badge>
+      )
+  }
 }
 
 // Auth guard component
@@ -82,10 +109,12 @@ export function SellerDashboard() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQ, setSearchQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<ProductFormData>(emptyForm)
   const [saving, setSaving] = useState(false)
+  const [resubmittingId, setResubmittingId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const fetchProducts = useCallback(async () => {
@@ -124,10 +153,19 @@ export function SellerDashboard() {
     return <LoginGuard />
   }
 
-  const filtered = products.filter((p) =>
-    p.title.toLowerCase().includes(searchQ.toLowerCase()) ||
-    p.format.toLowerCase().includes(searchQ.toLowerCase())
-  )
+  // Derive counts
+  const pendingCount = products.filter((p) => p.reviewStatus === 'PENDING').length
+  const approvedCount = products.filter((p) => p.reviewStatus === 'APPROVED').length
+  const rejectedCount = products.filter((p) => p.reviewStatus === 'REJECTED').length
+
+  // Filtered products: search + status filter
+  const filtered = products.filter((p) => {
+    const matchesSearch =
+      p.title.toLowerCase().includes(searchQ.toLowerCase()) ||
+      p.format.toLowerCase().includes(searchQ.toLowerCase())
+    const matchesStatus = statusFilter === 'ALL' || p.reviewStatus === statusFilter
+    return matchesSearch && matchesStatus
+  })
 
   // Toggle publish
   const togglePublish = async (product: Product) => {
@@ -163,6 +201,29 @@ export function SellerDashboard() {
       }
     } catch {
       toast.error('Lỗi kết nối server')
+    }
+  }
+
+  // Re-submit a rejected product for review
+  const handleResubmit = async (id: string) => {
+    setResubmittingId(id)
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewStatus: 'PENDING', reviewNote: null }),
+      })
+      if (res.ok) {
+        toast.success('Đã gửi lại để duyệt')
+        await fetchProducts()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || `Lỗi gửi lại (${res.status})`)
+      }
+    } catch {
+      toast.error('Lỗi kết nối server')
+    } finally {
+      setResubmittingId(null)
     }
   }
 
@@ -219,13 +280,14 @@ export function SellerDashboard() {
           toast.error(err.error || `Lỗi cập nhật (${res.status})`)
         }
       } else {
+        // New products always start as PENDING for review
         const res = await fetch('/api/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, reviewStatus: 'PENDING' }),
         })
         if (res.ok) {
-          toast.success('Đã đăng sản phẩm mới')
+          toast.success('Đã đăng sản phẩm mới — đang chờ duyệt')
           success = true
         } else {
           const err = await res.json().catch(() => ({}))
@@ -234,7 +296,6 @@ export function SellerDashboard() {
       }
       if (success) {
         setShowForm(false)
-        // Refresh product list from server after create/update
         await fetchProducts()
       }
     } catch (e) {
@@ -252,6 +313,13 @@ export function SellerDashboard() {
     'https://images.unsplash.com/photo-1516289587443-44c3f05e5c4f?w=640&h=360&fit=crop',
     'https://images.unsplash.com/photo-1584900501285-24ab11a14c6c?w=640&h=360&fit=crop',
     'https://images.unsplash.com/photo-1493225452364-bab4a9fcd274?w=640&h=360&fit=crop',
+  ]
+
+  const statusFilterOptions: { value: StatusFilter; label: string; count: number }[] = [
+    { value: 'ALL', label: 'Tất cả', count: products.length },
+    { value: 'PENDING', label: 'Chờ duyệt', count: pendingCount },
+    { value: 'APPROVED', label: 'Đã duyệt', count: approvedCount },
+    { value: 'REJECTED', label: 'Bị từ chối', count: rejectedCount },
   ]
 
   return (
@@ -295,7 +363,7 @@ export function SellerDashboard() {
           </div>
 
           {/* Stats bar */}
-          <div className="mt-4 flex gap-4">
+          <div className="mt-4 flex flex-wrap gap-4">
             <div className="rounded-lg bg-[#1f1f1f] px-4 py-2">
               <span className="text-xs text-[#888]">Tổng</span>
               <span className="ml-2 text-lg font-bold text-white">{products.length}</span>
@@ -312,11 +380,49 @@ export function SellerDashboard() {
               <span className="text-xs text-[#888]">Miễn phí</span>
               <span className="ml-2 text-lg font-bold text-[#3ea6ff]">{products.filter((p) => p.isFree).length}</span>
             </div>
+            <div className="rounded-lg bg-[#1f1f1f] px-4 py-2">
+              <span className="text-xs text-amber-400">Chờ duyệt</span>
+              <span className="ml-2 text-lg font-bold text-amber-400">{pendingCount}</span>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-[1200px] px-4 py-6 md:px-6">
+        {/* Pending products notice banner */}
+        {!loading && pendingCount > 0 && (
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-400" />
+            <span className="text-sm font-medium text-amber-300">
+              Bạn có <strong>{pendingCount}</strong> sản phẩm đang chờ duyệt
+            </span>
+          </div>
+        )}
+
+        {/* Status filter tabs */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {statusFilterOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setStatusFilter(opt.value)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                statusFilter === opt.value
+                  ? 'bg-[#f5a623] text-black'
+                  : 'bg-[#1f1f1f] text-[#aaa] hover:bg-[#272727] hover:text-white'
+              }`}
+            >
+              {opt.label}
+              <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-xs ${
+                statusFilter === opt.value
+                  ? 'bg-black/20 text-black'
+                  : 'bg-[#303030] text-[#888]'
+              }`}>
+                {opt.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {/* Product Form Modal */}
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowForm(false)}>
@@ -332,6 +438,14 @@ export function SellerDashboard() {
                   <X className="h-5 w-5" />
                 </Button>
               </div>
+
+              {/* New product review notice */}
+              {!editingId && (
+                <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  Sản phẩm mới sẽ được gửi để duyệt trước khi hiển thị công khai.
+                </div>
+              )}
 
               <div className="space-y-4">
                 <div>
@@ -529,7 +643,11 @@ export function SellerDashboard() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-20 text-[#888]">
             <Package className="h-16 w-16 opacity-30" />
-            <p className="text-lg font-medium">{searchQ ? 'Không tìm thấy sản phẩm' : 'Chưa có sản phẩm'}</p>
+            <p className="text-lg font-medium">
+              {searchQ || statusFilter !== 'ALL'
+                ? 'Không tìm thấy sản phẩm'
+                : 'Chưa có sản phẩm'}
+            </p>
             <Button className="gap-2 rounded-lg bg-[#f5a623] text-black hover:bg-[#e09515]" onClick={openCreate}>
               <Plus className="h-4 w-4" />
               Đăng sản phẩm đầu tiên
@@ -540,68 +658,91 @@ export function SellerDashboard() {
             {filtered.map((product) => (
               <div
                 key={product.id}
-                className={`group flex items-center gap-4 rounded-xl border border-[#303030] bg-[#1a1a1a] p-4 transition-all hover:border-[#444] ${!product.published ? 'opacity-60' : ''}`}
+                className={`group rounded-xl border border-[#303030] bg-[#1a1a1a] p-4 transition-all hover:border-[#444] ${!product.published ? 'opacity-60' : ''}`}
               >
-                <img
-                  src={product.thumbnail}
-                  alt={product.title}
-                  className="hidden h-14 w-24 shrink-0 rounded-lg object-cover sm:block"
-                />
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate text-sm font-medium text-[#f1f1f1]">{product.title}</h3>
-                    {product.featured && <Star className="h-3.5 w-3.5 fill-[#f5a623] text-[#f5a623]" />}
+                <div className="flex items-center gap-4">
+                  <img
+                    src={product.thumbnail}
+                    alt={product.title}
+                    className="hidden h-14 w-24 shrink-0 rounded-lg object-cover sm:block"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate text-sm font-medium text-[#f1f1f1]">{product.title}</h3>
+                      {product.featured && <Star className="h-3.5 w-3.5 shrink-0 fill-[#f5a623] text-[#f5a623]" />}
+                      <ReviewStatusBadge status={product.reviewStatus} />
+                    </div>
+                    {/* Review note for rejected products */}
+                    {product.reviewStatus === 'REJECTED' && product.reviewNote && (
+                      <div className="mt-1 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300">
+                        <span className="font-medium">Lý do:</span> {product.reviewNote}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#aaa]">
+                      <Badge variant="outline" className="border-[#303030] bg-[#0f0f0f] text-[#3ea6ff]">
+                        {product.format}
+                      </Badge>
+                      <Badge variant="outline" className="border-[#303030] bg-[#0f0f0f] text-[#888]">
+                        {product.categorySlug}
+                      </Badge>
+                      <span>{formatViews(product.views)} views</span>
+                      <span>•</span>
+                      <span>{product.sales} đã bán</span>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-[#aaa]">
-                    <Badge variant="outline" className="border-[#303030] bg-[#0f0f0f] text-[#3ea6ff]">
-                      {product.format}
-                    </Badge>
-                    <Badge variant="outline" className="border-[#303030] bg-[#0f0f0f] text-[#888]">
-                      {product.categorySlug}
-                    </Badge>
-                    <span>{formatViews(product.views)} views</span>
-                    <span>•</span>
-                    <span>{product.sales} đã bán</span>
+                  <div className="shrink-0 text-right">
+                    <span className={`text-sm font-bold ${product.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
+                      {product.isFree ? 'FREE' : `$${product.price}`}
+                    </span>
                   </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <span className={`text-sm font-bold ${product.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
-                    {product.isFree ? 'FREE' : `$${product.price}`}
-                  </span>
-                </div>
-                <div className="hidden shrink-0 md:block">
-                  <Badge className={`${product.published ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#ff6b6b]/20 text-[#ff6b6b]'}`}>
-                    {product.published ? 'Đang đăng' : 'Đã ẩn'}
-                  </Badge>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`h-8 w-8 ${product.published ? 'text-[#3fb950] hover:bg-[#3fb950]/10' : 'text-[#888] hover:bg-[#272727]'}`}
-                    onClick={() => togglePublish(product)}
-                    title={product.published ? 'Ẩn sản phẩm' : 'Đăng sản phẩm'}
-                  >
-                    {product.published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-[#3ea6ff] hover:bg-[#3ea6ff]/10"
-                    onClick={() => openEdit(product)}
-                    title="Chỉnh sửa"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-red-400 hover:bg-red-400/10"
-                    onClick={() => setDeleteConfirm(product.id)}
-                    title="Xóa"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="hidden shrink-0 md:block">
+                    <Badge className={`${product.published ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#ff6b6b]/20 text-[#ff6b6b]'}`}>
+                      {product.published ? 'Đang đăng' : 'Đã ẩn'}
+                    </Badge>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {/* Re-submit button for rejected products */}
+                    {product.reviewStatus === 'REJECTED' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 text-amber-400 hover:bg-amber-400/10"
+                        onClick={() => handleResubmit(product.id)}
+                        disabled={resubmittingId === product.id}
+                        title="Gửi lại để duyệt"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${resubmittingId === product.id ? 'animate-spin' : ''}`} />
+                        <span className="text-xs">Gửi lại</span>
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-8 w-8 ${product.published ? 'text-[#3fb950] hover:bg-[#3fb950]/10' : 'text-[#888] hover:bg-[#272727]'}`}
+                      onClick={() => togglePublish(product)}
+                      title={product.published ? 'Ẩn sản phẩm' : 'Đăng sản phẩm'}
+                    >
+                      {product.published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-[#3ea6ff] hover:bg-[#3ea6ff]/10"
+                      onClick={() => openEdit(product)}
+                      title="Chỉnh sửa"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-400 hover:bg-red-400/10"
+                      onClick={() => setDeleteConfirm(product.id)}
+                      title="Xóa"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

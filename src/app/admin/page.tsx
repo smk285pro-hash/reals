@@ -7,7 +7,7 @@ import {
   Search, ArrowLeft, Shield, Eye, EyeOff,
   Star, Trash2, UserCheck, TrendingUp, AlertCircle,
   Flag, BarChart3, Ban, MessageSquare, ExternalLink,
-  ChevronDown, AlertTriangle, FileWarning
+  ChevronDown, AlertTriangle, FileWarning, ClipboardList, Send
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,11 +15,20 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/stores'
 import { toast } from 'sonner'
 
-type Tab = 'overview' | 'products' | 'users' | 'reports' | 'analytics'
+type Tab = 'overview' | 'products' | 'users' | 'applications' | 'reports' | 'analytics'
 
 interface Stats {
   totalUsers: number; totalSellers: number; totalProducts: number
   publishedProducts: number; pendingProducts: number; totalRevenue: number
+  pendingApplications: number
+}
+
+interface SellerApplication {
+  id: string; userId: string; displayName: string; email: string
+  bio: string | null; portfolioUrl: string | null
+  categories: string[]; reason: string
+  status: string; adminNote: string | null
+  createdAt: string; reviewedAt: string | null
 }
 
 interface AdminUser {
@@ -76,6 +85,7 @@ const tabLabels: Record<Tab, string> = {
   overview: 'Tổng quan',
   products: 'Sản phẩm',
   users: 'User',
+  applications: 'Duyệt Seller',
   reports: 'Báo cáo',
   analytics: 'Analytics',
 }
@@ -89,11 +99,15 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [reports, setReports] = useState<ReportItem[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [applications, setApplications] = useState<SellerApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQ, setSearchQ] = useState('')
   const [productFilter, setProductFilter] = useState('ALL')
   const [reportFilter, setReportFilter] = useState('PENDING')
+  const [appFilter, setAppFilter] = useState('PENDING')
   const [analyticsRange, setAnalyticsRange] = useState('30d')
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectNote, setRejectNote] = useState('')
 
   const userRole = (session?.user as any)?.role
 
@@ -137,9 +151,18 @@ export default function AdminDashboard() {
     } catch {} finally { setLoading(false) }
   }
 
+  const fetchApplications = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/applications?status=${appFilter}`)
+      if (res.ok) { const data = await res.json(); setApplications(data.applications || []) }
+    } catch {} finally { setLoading(false) }
+  }
+
   useEffect(() => { if (userRole === 'ADMIN') fetchStats() }, [userRole])
   useEffect(() => { if (tab === 'users' && userRole === 'ADMIN') fetchUsers() }, [tab, userRole])
   useEffect(() => { if (tab === 'products' && userRole === 'ADMIN') fetchProducts() }, [tab, productFilter, userRole])
+  useEffect(() => { if (tab === 'applications' && userRole === 'ADMIN') fetchApplications() }, [tab, appFilter, userRole])
   useEffect(() => { if (tab === 'reports' && userRole === 'ADMIN') fetchReports() }, [tab, reportFilter, userRole])
   useEffect(() => { if (tab === 'analytics' && userRole === 'ADMIN') fetchAnalytics() }, [tab, analyticsRange, userRole])
 
@@ -233,6 +256,20 @@ export default function AdminDashboard() {
     } catch { toast.error('Lỗi kết nối') }
   }
 
+  const reviewApplication = async (id: string, status: string, adminNote?: string) => {
+    try {
+      const res = await fetch('/api/admin/applications', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status, adminNote }),
+      })
+      if (res.ok) {
+        toast.success(status === 'APPROVED' ? 'Đã duyệt seller' : 'Đã từ chối')
+        fetchApplications(); fetchStats()
+        setRejectingId(null); setRejectNote('')
+      } else { const e = await res.json(); toast.error(e.error || 'Lỗi') }
+    } catch { toast.error('Lỗi kết nối') }
+  }
+
   const roleColor: Record<string, string> = {
     ADMIN: 'bg-red-500/20 text-red-400',
     SELLER: 'bg-[#f5a623]/20 text-[#f5a623]',
@@ -284,7 +321,7 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="flex gap-1 rounded-lg bg-[#1f1f1f] p-1 overflow-x-auto">
-              {(['overview', 'products', 'users', 'reports', 'analytics'] as Tab[]).map(t => (
+              {(['overview', 'products', 'users', 'applications', 'reports', 'analytics'] as Tab[]).map(t => (
                 <button
                   key={t}
                   className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
@@ -293,6 +330,13 @@ export default function AdminDashboard() {
                   onClick={() => setTab(t)}
                 >
                   {tabLabels[t]}
+                  {t === 'applications' && stats && stats.pendingApplications > 0 && (
+                    <span className={`ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
+                      tab === 'applications' ? 'bg-black/20 text-black' : 'bg-red-500 text-white'
+                    }`}>
+                      {stats.pendingApplications}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -311,7 +355,17 @@ export default function AdminDashboard() {
               <StatCard icon={CheckCircle} label="Đã đăng" value={stats.publishedProducts} color="bg-[#3fb950]/20 text-[#3fb950]" />
               <StatCard icon={Clock} label="Chờ duyệt" value={stats.pendingProducts} color="bg-yellow-500/20 text-yellow-400" />
               <StatCard icon={DollarSign} label="Tổng giá trị" value={`$${stats.totalRevenue.toFixed(2)}`} color="bg-[#3fb950]/20 text-[#3fb950]" />
+              <StatCard icon={ClipboardList} label="Đơn seller chờ duyệt" value={stats.pendingApplications} color="bg-[#f5a623]/20 text-[#f5a623]" />
             </div>
+            {stats.pendingApplications > 0 && (
+              <div className="flex items-center gap-3 rounded-xl border border-[#f5a623]/30 bg-[#f5a623]/5 p-4">
+                <ClipboardList className="h-5 w-5 text-[#f5a623]" />
+                <span className="text-sm text-[#f5a623]">Có <strong>{stats.pendingApplications}</strong> đơn đăng seller đang chờ duyệt</span>
+                <Button size="sm" className="ml-auto bg-[#f5a623] text-black hover:bg-[#e09515]" onClick={() => { setAppFilter('PENDING'); setTab('applications') }}>
+                  Xem ngay
+                </Button>
+              </div>
+            )}
             {stats.pendingProducts > 0 && (
               <div className="flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
                 <AlertCircle className="h-5 w-5 text-yellow-400" />
@@ -434,6 +488,111 @@ export default function AdminDashboard() {
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:bg-red-400/10" onClick={() => deleteUser(u.id)} title="Xóa">
                         <Trash2 className="h-4 w-4" />
                       </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Applications Tab */}
+        {tab === 'applications' && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex gap-1 rounded-lg bg-[#1f1f1f] p-1">
+                {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(f => (
+                  <button key={f} className={`rounded-md px-3 py-1 text-xs font-medium ${appFilter === f ? 'bg-[#f5a623] text-black' : 'text-[#aaa] hover:text-white'}`} onClick={() => setAppFilter(f)}>
+                    {f === 'ALL' ? 'Tất cả' : f === 'PENDING' ? 'Chờ duyệt' : f === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {loading ? (
+              <div className="space-y-2">{Array.from({length:5}).map((_,i) => <Skeleton key={i} className="h-24 w-full rounded-lg bg-[#1f1f1f]" />)}</div>
+            ) : applications.length === 0 ? (
+              <div className="py-20 text-center text-[#888]">
+                <ClipboardList className="mx-auto mb-3 h-12 w-12 text-[#303030]" />
+                <p>Không có đơn đăng seller</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {applications.map(app => (
+                  <div key={app.id} className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5a623]/20 text-sm font-bold text-[#f5a623]">
+                        {app.displayName[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-medium text-[#f1f1f1]">{app.displayName}</h3>
+                          <Badge className={reviewColor[app.status] || ''}>{app.status === 'PENDING' ? 'Chờ duyệt' : app.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-[#aaa]">
+                          <span>{app.email}</span>
+                          <span>•</span>
+                          <span>{new Date(app.createdAt).toLocaleDateString('vi-VN')}</span>
+                          {app.reviewedAt && (
+                            <>
+                              <span>•</span>
+                              <span className="text-[#666]">Duyệt: {new Date(app.reviewedAt).toLocaleDateString('vi-VN')}</span>
+                            </>
+                          )}
+                        </div>
+                        {app.bio && (
+                          <p className="text-xs text-[#aaa]">Bio: {app.bio}</p>
+                        )}
+                        {app.portfolioUrl && (
+                          <a href={app.portfolioUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#3ea6ff] hover:underline">
+                            <ExternalLink className="h-3 w-3" /> Portfolio
+                          </a>
+                        )}
+                        {app.categories.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {app.categories.map(c => (
+                              <span key={c} className="rounded-md bg-[#272727] px-2 py-0.5 text-xs text-[#aaa]">{c}</span>
+                            ))}
+                          </div>
+                        )}
+                        {app.reason && (
+                          <p className="text-xs text-[#f1f1f1]">Lý do đăng ký: {app.reason}</p>
+                        )}
+                        {app.adminNote && (
+                          <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-2 text-xs text-red-400">
+                            📝 Ghi chú: {app.adminNote}
+                          </div>
+                        )}
+                      </div>
+                      {/* Actions */}
+                      {app.status === 'PENDING' && (
+                        <div className="flex flex-col items-end gap-2">
+                          <Button size="sm" className="h-7 bg-[#3fb950] text-white hover:bg-[#3fb950]/80" onClick={() => reviewApplication(app.id, 'APPROVED')}>
+                            <CheckCircle className="mr-1 h-3.5 w-3.5" /> Duyệt
+                          </Button>
+                          {rejectingId === app.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                value={rejectNote}
+                                onChange={e => setRejectNote(e.target.value)}
+                                placeholder="Lý do từ chối..."
+                                className="h-7 w-36 rounded-lg border border-[#303030] bg-[#0f0f0f] px-2 text-xs text-white outline-none placeholder:text-[#666]"
+                                autoFocus
+                                onKeyDown={e => { if (e.key === 'Enter' && rejectNote.trim()) reviewApplication(app.id, 'REJECTED', rejectNote.trim()) }}
+                              />
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:bg-red-400/10" onClick={() => { if (rejectNote.trim()) reviewApplication(app.id, 'REJECTED', rejectNote.trim()) }}>
+                                <Send className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-[#888] hover:bg-[#272727]" onClick={() => { setRejectingId(null); setRejectNote('') }}>
+                                <XCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-7 text-red-400 hover:bg-red-400/10" onClick={() => { setRejectingId(app.id); setRejectNote('') }}>
+                              <XCircle className="mr-1 h-3.5 w-3.5" /> Từ chối
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

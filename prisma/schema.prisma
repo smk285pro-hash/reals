@@ -21,11 +21,12 @@ model User {
   emailVerified DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  products      Product[]
-  reviews       Review[]
-  reports       Report[]
-  accounts      Account[]
-  sessions      Session[]
+  products             Product[]
+  reviews              Review[]
+  reports              Report[]
+  accounts             Account[]
+  sessions             Session[]
+  sellerApplication    SellerApplication?
 }
 
 model Account {
@@ -90,9 +91,9 @@ model Product {
   seller       User      @relation(fields: [sellerId], references: [id])
   tags         String
   featured     Boolean   @default(false)
-  published    Boolean   @default(true)
-  reviewStatus String    @default("APPROVED") // PENDING, APPROVED, REJECTED
-  reviewNote   String?   // Reason for rejection
+  published    Boolean   @default(false)  // Only true when reviewStatus=APPROVED
+  reviewStatus String    @default("PENDING") // PENDING, APPROVED, REJECTED — new products need review
+  reviewNote   String?   // Admin note (rejection reason, etc.)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   reviews      Review[]
@@ -129,4 +130,20 @@ model Report {
   reporter    User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model SellerApplication {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName     String   // Shop name / Seller display name
+  bio             String?  // Short description of what they sell
+  portfolioUrl    String?  // Portfolio / website URL
+  categories      String?  // Comma-separated categories they want to sell in
+  reason          String?  // Why they want to become a seller
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  adminNote       String?  // Admin's note on decision
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

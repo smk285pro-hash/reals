@@ -68,7 +68,11 @@ export async function PUT(
         duration: body.duration,
         tags: body.tags,
         featured: body.featured,
-        published: body.published,
+        // Only allow seller to set reviewStatus back to PENDING (re-submit)
+        // They cannot set it to APPROVED directly
+        ...(body.reviewStatus === 'PENDING' && existing.reviewStatus === 'REJECTED'
+          ? { reviewStatus: 'PENDING', reviewNote: null, published: false }
+          : {}),
       },
     })
 
