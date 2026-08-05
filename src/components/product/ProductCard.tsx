@@ -4,6 +4,7 @@ import { BadgeCheck, Star, Eye, Heart, Play } from 'lucide-react'
 import type { Product } from '@/types'
 import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { HoverPreview } from './HoverPreview'
+import { useState, useRef, useCallback } from 'react'
 
 function formatViews(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
@@ -33,12 +34,51 @@ interface ProductCardProps {
   product: Product
 }
 
+/** Extract YouTube video ID from URL */
+function extractYTId(url: string): string | null {
+  try {
+    const u = new URL(url)
+    if (u.hostname.includes('youtube.com') && u.pathname === '/watch') return u.searchParams.get('v')
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null
+    if (u.pathname.startsWith('/embed/')) return u.pathname.split('/')[2] || null
+    if (u.pathname.startsWith('/shorts/')) return u.pathname.split('/')[2] || null
+    if (u.hostname === 'm.youtube.com' && u.pathname === '/watch') return u.searchParams.get('v')
+    return null
+  } catch {
+    const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|shorts\/|watch\?v=))([a-zA-Z0-9_-]{11})/)
+    return m ? m[1] : null
+  }
+}
+
 export function ProductCard({ product }: ProductCardProps) {
   const { setDetailProductId } = useAppStore()
   const { isInWishlist, toggleItem } = useWishlistStore()
   const { addItem: addRecent } = useRecentlyViewedStore()
   const inWishlist = isInWishlist(product.id)
   const badges = getProductBadges(product)
+
+  // YouTube hover-to-play
+  const ytId = product.videoUrl ? extractYTId(product.videoUrl) : null
+  const [hovering, setHovering] = useState(false)
+  const [showVideo, setShowVideo] = useState(false)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleMouseEnter = useCallback(() => {
+    setHovering(true)
+    // Delay 400ms before loading iframe (avoid loading for quick passes)
+    if (ytId) {
+      hoverTimer.current = setTimeout(() => setShowVideo(true), 400)
+    }
+  }, [ytId])
+
+  const handleMouseLeave = useCallback(() => {
+    setHovering(false)
+    setShowVideo(false)
+    if (hoverTimer.current) {
+      clearTimeout(hoverTimer.current)
+      hoverTimer.current = null
+    }
+  }, [])
 
   const initials = product.seller.name
     ?.split(' ')
@@ -58,14 +98,28 @@ export function ProductCard({ product }: ProductCardProps) {
         className="group relative cursor-pointer"
         onClick={handleClick}
       >
-        {/* Thumbnail */}
-        <div className="relative aspect-video overflow-hidden rounded-xl bg-[#333]">
-          <img
-            src={product.thumbnail}
-            alt={product.title}
-            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-            loading="lazy"
-          />
+        {/* Thumbnail / Video Preview */}
+        <div
+          className="relative aspect-video overflow-hidden rounded-xl bg-[#333]"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {showVideo && ytId ? (
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1`}
+              title={product.title}
+              allow="autoplay; encrypted-media"
+              className="h-full w-full border-0"
+              style={{ pointerEvents: 'none' }}
+            />
+          ) : (
+            <img
+              src={product.thumbnail}
+              alt={product.title}
+              className={`h-full w-full object-cover transition-transform duration-200 ${hovering ? 'scale-105' : ''}`}
+              loading="lazy"
+            />
+          )}
 
           {/* Price badge */}
           <div
