@@ -17,6 +17,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Phiên đăng nhập không hợp lệ' }, { status: 401 })
     }
 
+    // Verify the user is still a seller (prevents access after downgrade)
+    const user = await db.user.findUnique({ where: { id: userId }, select: { isSeller: true } })
+    if (!user?.isSeller) {
+      return NextResponse.json({ error: 'Bạn không còn quyền seller. Vui lòng liên hệ admin.' }, { status: 403 })
+    }
+
     // Get only this user's products (including unpublished)
     const [products, total, categories] = await Promise.all([
       db.product.findMany({

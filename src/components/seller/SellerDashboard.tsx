@@ -104,7 +104,7 @@ function LoginGuard() {
 
 export function SellerDashboard() {
   const { setActiveCategory, setSellerApplyModalOpen } = useAppStore()
-  const { status: authStatus, data: session } = useSession()
+  const { status: authStatus, data: session, update: updateSession } = useSession()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -116,6 +116,28 @@ export function SellerDashboard() {
   const [saving, setSaving] = useState(false)
   const [resubmittingId, setResubmittingId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+
+  // Verify seller status from server on mount (not just session cache)
+  // This catches cases where admin downgraded the user but session still has isSeller=true
+  const [serverSellerStatus, setServerSellerStatus] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (authStatus !== 'authenticated') return
+    fetch('/api/seller/apply', { method: 'GET' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setServerSellerStatus(data.isSeller === true)
+          // If server says not seller but session thinks it is, force refresh session
+          if (data.isSeller === false && (session?.user as any)?.isSeller === true) {
+            updateSession?.()
+          }
+        }
+      })
+      .catch(() => {})
+  }, [authStatus])
+
+  // Use server-verified status when available, otherwise fall back to session
+  const isVerifiedSeller = serverSellerStatus !== null ? serverSellerStatus : (session?.user as any)?.isSeller === true
 
   const fetchProducts = useCallback(async () => {
     setLoading(true)
@@ -154,7 +176,7 @@ export function SellerDashboard() {
   }
 
   // Seller guard - if user is not an approved seller, show registration prompt
-  if (authStatus === 'authenticated' && !(session?.user as any)?.isSeller) {
+  if (authStatus === 'authenticated' && !isVerifiedSeller) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f0f0f]">
         <div className="flex flex-col items-center gap-6 rounded-2xl border border-[#303030] bg-[#181818] p-12 max-w-md text-center">
