@@ -279,7 +279,7 @@ export default function AdminDashboard() {
                 <Shield className="h-6 w-6 text-red-500" />
                 <div>
                   <h1 className="text-lg font-bold text-white">Admin Dashboard</h1>
-                  <p className="text-xs text-[#888]">Quản trị hệ thống ReaTube</p>
+                  <p className="text-xs text-[#888]">Quản trị hệ thống reals</p>
                 </div>
               </div>
             </div>

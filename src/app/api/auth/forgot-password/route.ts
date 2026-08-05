@@ -53,14 +53,14 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'ReaTube Store <noreply@reals.media>',
+            from: 'reals <noreply@reals.media>',
             to: email,
-            subject: 'Đặt lại mật khẩu - ReaTube Store',
+            subject: 'Đặt lại mật khẩu - reals',
             html: `
               <div style="max-width:600px;margin:0 auto;padding:20px;font-family:sans-serif;background:#0f0f0f;color:#f1f1f1;border-radius:12px">
                 <h1 style="color:#f5a623;font-size:24px;margin-bottom:16px">Đặt lại mật khẩu</h1>
                 <p style="color:#aaa;font-size:16px;line-height:1.6">
-                  Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản ReaTube Store.
+                  Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản reals.
                 </p>
                 <a href="${siteUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}" 
                    style="display:inline-block;background:#f5a623;color:#000;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;margin:20px 0">

@@ -30,27 +30,27 @@ async function main() {
   // 2. Create admin/seller user
   const hashedPassword = await bcrypt.hash('admin123', 12)
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@reatube.store' },
+    where: { email: 'admin@reals.media' },
     update: {},
     create: {
-      email: 'admin@reatube.store',
-      name: 'ReaTube Admin',
-      avatar: 'https://ui-avatars.com/api/?name=ReaTube+Admin&background=f5a623&color=fff&size=128',
-      bio: 'Quản trị viên ReaTube Store',
+      email: 'admin@reals.media',
+      name: 'reals Admin',
+      avatar: 'https://ui-avatars.com/api/?name=reals+Admin&background=f5a623&color=fff&size=128',
+      bio: 'Quản trị viên reals',
       role: 'ADMIN',
       isSeller: true,
       password: hashedPassword,
     },
   })
-  console.log(`✅ Created admin user: admin@reatube.store / admin123`)
+  console.log(`✅ Created admin user: admin@reals.media / admin123`)
 
   // 3. Create a demo seller
   const demoPassword = await bcrypt.hash('demo123', 12)
   const demoSeller = await prisma.user.upsert({
-    where: { email: 'demo@reatube.store' },
+    where: { email: 'demo@reals.media' },
     update: {},
     create: {
-      email: 'demo@reatube.store',
+      email: 'demo@reals.media',
       name: 'REAPER Developer',
       avatar: 'https://ui-avatars.com/api/?name=REAPER+Dev&background=6366f1&color=fff&size=128',
       bio: 'Chuyên phát triển plugin và script cho REAPER DAW',
@@ -58,7 +58,7 @@ async function main() {
       password: demoPassword,
     },
   })
-  console.log(`✅ Created demo seller: demo@reatube.store / demo123`)
+  console.log(`✅ Created demo seller: demo@reals.media / demo123`)
 
   // 4. Create sample products
   const products = [
@@ -182,8 +182,8 @@ async function main() {
 
   console.log('\n🎉 Seed completed successfully!')
   console.log('\n📋 Account Info:')
-  console.log('   Admin: admin@reatube.store / admin123')
-  console.log('   Demo:  demo@reatube.store / demo123')
+  console.log('   Admin: admin@reals.media / admin123')
+  console.log('   Demo:  demo@reals.media / demo123')
 }
 
 main()

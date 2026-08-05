@@ -35,7 +35,7 @@ export function Navbar() {
 
   const handleShare = async () => {
     if (navigator.share) {
-      await navigator.share({ title: 'ReaTube Store', url: window.location.href })
+      await navigator.share({ title: 'reals', url: window.location.href })
     } else {
       await navigator.clipboard.writeText(window.location.href)
     }

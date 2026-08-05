@@ -53,7 +53,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-[#303030] pt-6 md:flex-row">
           <p className="text-xs text-[#666]">
-            © 2024 ReaTube Store. All rights reserved.
+            © 2025 reals. All rights reserved.
           </p>
           <div className="flex gap-4">
             <a href="#" className="text-[#888] hover:text-white">

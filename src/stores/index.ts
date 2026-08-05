@@ -61,7 +61,7 @@ export const useCartStore = create<CartStore>()(
       isInCart: (productId: string) =>
         get().items.some((i) => i.product.id === productId),
     }),
-    { name: 'reatube-cart' }
+    { name: 'reals-cart' }
   )
 )
 
@@ -103,7 +103,7 @@ export const useWishlistStore = create<WishlistStore>()(
 
       clearWishlist: () => set({ items: [] }),
     }),
-    { name: 'reatube-wishlist' }
+    { name: 'reals-wishlist' }
   )
 )
 
@@ -126,7 +126,7 @@ export const useRecentlyViewedStore = create<RecentlyViewedStore>()(
 
       clearAll: () => set({ items: [] }),
     }),
-    { name: 'reatube-recent' }
+    { name: 'reals-recent' }
   )
 )
 

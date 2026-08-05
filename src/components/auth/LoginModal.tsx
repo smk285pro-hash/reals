@@ -75,7 +75,7 @@ export function LoginModal({ open, onOpenChange, onSwitchToRegister, onSwitchToF
         <div className="px-6 pt-4 pb-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-center text-[#f1f1f1]">
-              Đăng nhập ReaTube
+              Đăng nhập reals
             </DialogTitle>
             <DialogDescription className="text-center text-[#888] text-sm">
               Mua bán plugin & script cho REAPER DAW
