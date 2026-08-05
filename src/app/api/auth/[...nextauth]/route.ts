@@ -77,45 +77,43 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   // Cookie config — critical for Vercel production
+  // __Host- prefix requires NO domain attribute and Secure flag
+  // For single-domain (reals.media), use __Host- without domain
   cookies: {
     sessionToken: {
-      name: `${isProduction ? '__Host-' : ''}next-auth.session-token`,
+      name: `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
         secure: isProduction,
-        domain: isProduction ? '.reals.media' : undefined,
       },
     },
     callbackUrl: {
-      name: `${isProduction ? '__Host-' : ''}next-auth.callback-url`,
+      name: `next-auth.callback-url`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
         secure: isProduction,
-        domain: isProduction ? '.reals.media' : undefined,
       },
     },
     csrfToken: {
-      name: `${isProduction ? '__Host-' : ''}next-auth.csrf-token`,
+      name: `next-auth.csrf-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
         secure: isProduction,
-        domain: isProduction ? '.reals.media' : undefined,
       },
     },
     pkceCodeVerifier: {
-      name: `${isProduction ? '__Host-' : ''}next-auth.pkce.code_verifier`,
+      name: `next-auth.pkce.code_verifier`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
         secure: isProduction,
-        domain: isProduction ? '.reals.media' : undefined,
       },
     },
   },

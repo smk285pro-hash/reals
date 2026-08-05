@@ -60,7 +60,7 @@ export async function middleware(req: NextRequest) {
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: blob: https: http:",
         "media-src 'self' https: http:",
-        "frame-src 'self' https://www.youtube.com https://youtube.com https://vercel.live",
+        "frame-src 'self' https://www.youtube.com https://youtube.com https://vercel.live https://accounts.google.com",
         "connect-src 'self' https: wss:",
         "worker-src 'self' blob:",
       ].join('; ')
