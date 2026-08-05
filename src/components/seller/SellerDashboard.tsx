@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, Search,
   Package, ArrowLeft, Save, X, LogIn, RefreshCw, AlertCircle, Store,
-  Youtube, Upload, ImagePlus, Loader2, Link2, CheckCircle2
+  Youtube, Upload, Loader2, Link2, CheckCircle2
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -375,15 +375,6 @@ export function SellerDashboard() {
       setSaving(false)
     }
   }
-
-  const thumbnailPresets = [
-    'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1558618660-7c0c3b1a4e93?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1511379928520-ba4c0e00a8db?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1516289587443-44c3f05e5c4f?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1584900501285-24ab11a14c6c?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1493225452364-bab4a9fcd274?w=640&h=360&fit=crop',
-  ]
 
   // YouTube thumbnail fetching state
   const [ytThumbnails, setYtThumbnails] = useState<{ quality: string; label: string; url: string }[]>([])
@@ -770,27 +761,6 @@ export function SellerDashboard() {
                       </div>
                     )}
 
-                    {/* Preset thumbnails (Unsplash) */}
-                    <div>
-                      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[#888]">
-                        <ImagePlus className="h-3.5 w-3.5" />
-                        Hoặc chọn ảnh mẫu:
-                      </p>
-                      <div className="flex gap-2 overflow-x-auto pb-1">
-                        {thumbnailPresets.map((url, i) => (
-                          <button
-                            key={i}
-                            className={`h-12 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
-                              form.thumbnail === url ? 'border-[#f5a623]' : 'border-transparent hover:border-[#555]'
-                            }`}
-                            onClick={() => setForm({ ...form, thumbnail: url })}
-                          >
-                            <img src={url} alt="" className="h-full w-full object-cover" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* Preview */}
                     {form.thumbnail && (
                       <div className="mt-1 aspect-video w-full max-w-[360px] overflow-hidden rounded-lg bg-[#333]">
@@ -799,7 +769,7 @@ export function SellerDashboard() {
                           alt="Preview"
                           className="h-full w-full object-cover"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = thumbnailPresets[0]
+                            (e.target as HTMLImageElement).style.display = 'none'
                           }}
                         />
                       </div>
