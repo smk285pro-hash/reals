@@ -16,13 +16,12 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { useEffect, useState, useRef } from 'react'
-import { SellerApplyModal } from '@/components/auth/SellerApplyModal'
 
 export function Navbar() {
   const {
     toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery,
     notificationOpen, setNotificationOpen,
-    setLoginModalOpen, setActiveCategory, sellerApplyModalOpen, setSellerApplyModalOpen,
+    setLoginModalOpen, setActiveCategory, setSellerApplyModalOpen,
   } = useAppStore()
   const totalItems = useCartStore((s) => s.totalItems())
   const [localSearch, setLocalSearch] = useState(searchQuery)
@@ -97,12 +96,12 @@ export function Navbar() {
           <Button
             variant="ghost"
             size="sm"
-            className="hidden gap-1.5 rounded-full border border-[#f5a623]/40 bg-[#f5a623]/10 px-3 text-[#f5a623] hover:bg-[#f5a623]/20 md:flex"
+            className="gap-1.5 rounded-full border border-[#f5a623]/40 bg-[#f5a623]/10 px-3 text-[#f5a623] hover:bg-[#f5a623]/20"
             onClick={() => setSellerApplyModalOpen(true)}
             title="Đăng ký Seller"
           >
             <Store className="h-4 w-4" />
-            <span className="text-xs font-medium">Đăng ký Seller</span>
+            <span className="hidden sm:inline text-xs font-medium">Đăng ký Seller</span>
           </Button>
         ) : null}
         {/* Admin button - only show for admin */}
@@ -241,8 +240,6 @@ export function Navbar() {
         </Button>
       </div>
 
-      {/* Seller Apply Modal - accessible from Navbar */}
-      <SellerApplyModal open={sellerApplyModalOpen} onOpenChange={setSellerApplyModalOpen} />
     </nav>
   )
 }

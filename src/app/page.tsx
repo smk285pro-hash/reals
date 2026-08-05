@@ -20,6 +20,7 @@ import { ScrollToTop } from '@/components/ui-custom/ScrollToTop'
 import { LoginModal } from '@/components/auth/LoginModal'
 import { RegisterModal } from '@/components/auth/RegisterModal'
 import { ForgotPasswordModal } from '@/components/auth/ForgotPasswordModal'
+import { SellerApplyModal } from '@/components/auth/SellerApplyModal'
 import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Product, Category } from '@/types'
@@ -32,6 +33,7 @@ export default function HomePage() {
     loginModalOpen, setLoginModalOpen,
     registerModalOpen, setRegisterModalOpen,
     forgotPasswordModalOpen, setForgotPasswordModalOpen,
+    sellerApplyModalOpen, setSellerApplyModalOpen,
   } = useAppStore()
   const wishlistItems = useWishlistStore((s) => s.items)
   const { addItem: addRecent } = useRecentlyViewedStore()
@@ -127,6 +129,10 @@ export default function HomePage() {
         open={forgotPasswordModalOpen}
         onOpenChange={(open) => { console.log('ForgotPasswordModal onOpenChange', open); setForgotPasswordModalOpen(open); }}
         onSwitchToLogin={() => { console.log('switchToLogin from forgot'); setForgotPasswordModalOpen(false); setTimeout(() => { console.log('setTimeout: opening login from forgot'); setLoginModalOpen(true); }, 150); }}
+      />
+      <SellerApplyModal
+        open={sellerApplyModalOpen}
+        onOpenChange={setSellerApplyModalOpen}
       />
 
       {/* Admin Dashboard View */}
