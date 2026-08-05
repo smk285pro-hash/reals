@@ -37,6 +37,7 @@ async function main() {
       name: 'ReaTube Admin',
       avatar: 'https://ui-avatars.com/api/?name=ReaTube+Admin&background=f5a623&color=fff&size=128',
       bio: 'Quản trị viên ReaTube Store',
+      role: 'ADMIN',
       isSeller: true,
       password: hashedPassword,
     },

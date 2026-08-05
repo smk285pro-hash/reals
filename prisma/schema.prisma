@@ -23,6 +23,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   products      Product[]
   reviews       Review[]
+  reports       Report[]
   accounts      Account[]
   sessions      Session[]
 }
@@ -114,4 +115,18 @@ model CartItem {
   productId String
   quantity  Int      @default(1)
   addedAt   DateTime @default(now())
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  type        String   // PRODUCT, USER, REVIEW
+  targetId    String   // ID of reported entity
+  reason      String   // SPAM, INAPPROPRIATE, COPYRIGHT, OTHER
+  description String?  // Additional details from reporter
+  status      String   @default("PENDING") // PENDING, REVIEWED, DISMISSED, ACTIONED
+  adminNote   String?  // Admin's note on resolution
+  reporterId  String
+  reporter    User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
