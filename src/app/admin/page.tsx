@@ -24,11 +24,12 @@ interface Stats {
 }
 
 interface SellerApplication {
-  id: string; userId: string; displayName: string; email: string
+  id: string; userId: string; displayName: string
   bio: string | null; portfolioUrl: string | null
-  categories: string[]; reason: string
+  categories: string | null; reason: string | null
   status: string; adminNote: string | null
   createdAt: string; reviewedAt: string | null
+  user: { id: string; email: string; name: string | null; image: string | null; avatar: string | null; isSeller: boolean; createdAt: string; _count: { products: number } }
 }
 
 interface AdminUser {
@@ -40,7 +41,7 @@ interface AdminUser {
 interface AdminProduct {
   id: string; title: string; price: number; isFree: boolean
   published: boolean; reviewStatus: string; reviewNote: string | null
-  createdAt: string; seller: { name: string | null; email: string }
+  featured: boolean; createdAt: string; seller: { name: string | null; email: string }
 }
 
 interface ReportItem {
@@ -521,7 +522,7 @@ export default function AdminDashboard() {
                   <div key={app.id} className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
                     <div className="flex items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5a623]/20 text-sm font-bold text-[#f5a623]">
-                        {app.displayName[0].toUpperCase()}
+                        {(app.displayName || '?')[0].toUpperCase()}
                       </div>
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -529,7 +530,7 @@ export default function AdminDashboard() {
                           <Badge className={reviewColor[app.status] || ''}>{app.status === 'PENDING' ? 'Chờ duyệt' : app.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}</Badge>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-[#aaa]">
-                          <span>{app.email}</span>
+                          <span>{app.user?.email || app.userId}</span>
                           <span>•</span>
                           <span>{new Date(app.createdAt).toLocaleDateString('vi-VN')}</span>
                           {app.reviewedAt && (
@@ -547,9 +548,9 @@ export default function AdminDashboard() {
                             <ExternalLink className="h-3 w-3" /> Portfolio
                           </a>
                         )}
-                        {app.categories.length > 0 && (
+                        {app.categories && app.categories.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {app.categories.map(c => (
+                            {app.categories.split(',').map(c => c.trim()).filter(Boolean).map(c => (
                               <span key={c} className="rounded-md bg-[#272727] px-2 py-0.5 text-xs text-[#aaa]">{c}</span>
                             ))}
                           </div>
