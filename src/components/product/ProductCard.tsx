@@ -12,15 +12,6 @@ function formatViews(n: number): string {
   return n.toString()
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const days = Math.floor(diff / 86400000)
-  if (days < 7) return `${days} ngày trước`
-  if (days < 30) return `${Math.floor(days / 7)} tuần trước`
-  if (days < 365) return `${Math.floor(days / 30)} tháng trước`
-  return `${Math.floor(days / 365)} năm trước`
-}
-
 function getProductBadges(product: Product): { label: string; color: string }[] {
   const badges: { label: string; color: string }[] = []
   const daysSinceCreation = (Date.now() - new Date(product.createdAt).getTime()) / 86400000
@@ -164,17 +155,6 @@ export function ProductCard({ product }: ProductCardProps) {
           >
             <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-red-500' : ''}`} />
           </button>
-
-          {/* Rating overlay on hover */}
-          <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
-            <div className="flex items-center gap-1 text-xs text-white">
-              <Star className="h-3 w-3 fill-[#f5a623] text-[#f5a623]" />
-              {product.rating}
-              <span className="mx-1">•</span>
-              <Eye className="h-3 w-3" />
-              {formatViews(product.views)}
-            </div>
-          </div>
         </div>
 
         {/* Info */}
@@ -192,10 +172,17 @@ export function ProductCard({ product }: ProductCardProps) {
               <span>{product.seller.name}</span>
               <BadgeCheck className="h-3 w-3 text-[#3ea6ff]" />
             </div>
-            <div className="flex items-center gap-1 text-xs text-[#aaa]">
-              <span>{formatViews(product.views)} views</span>
-              <span>•</span>
-              <span>{timeAgo(product.createdAt)}</span>
+            {/* Stats: rating • views • sales — always visible */}
+            <div className="flex items-center gap-2 text-xs text-[#888]">
+              <span className="flex items-center gap-0.5">
+                <Star className="h-3 w-3 fill-[#f5a623] text-[#f5a623]" />
+                <span className="text-[#f5a623]">{product.rating}</span>
+              </span>
+              <span className="flex items-center gap-0.5">
+                <Eye className="h-3 w-3" />
+                {formatViews(product.views)}
+              </span>
+              <span>{product.sales} bán</span>
             </div>
             {/* Format tag */}
             <span className="mt-1 inline-block rounded border border-[#303030] bg-[#1f1f1f] px-1.5 py-0.5 text-[10px] font-medium text-[#3ea6ff]">
