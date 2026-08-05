@@ -2,12 +2,14 @@
 
 import {
   Home, Flame, Clock, Tag, Heart, Download,
-  Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star, LayoutDashboard
+  Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star, LayoutDashboard, LogIn
 } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { useAppStore, useWishlistStore } from '@/stores'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 
 const mainLinks = [
   { icon: Home, label: 'Trang chủ', id: 'all' },
@@ -28,11 +30,16 @@ const categoryLinks = [
 ]
 
 export function Sidebar() {
-  const { sidebarOpen, setActiveCategory, activeCategory } = useAppStore()
+  const { sidebarOpen, setActiveCategory, activeCategory, setLoginModalOpen, setSidebarOpen } = useAppStore()
   const wishlistCount = useWishlistStore((s) => s.items.length)
+  const { data: session } = useSession()
   const [categoriesExpanded, setCategoriesExpanded] = useState(true)
 
   if (!sidebarOpen) return null
+
+  const userInitial = session?.user?.name
+    ? session.user.name.charAt(0).toUpperCase()
+    : 'U'
 
   return (
     <>
@@ -44,6 +51,35 @@ export function Sidebar() {
 
       {/* Sidebar panel */}
       <aside className="fixed left-0 top-0 z-50 flex h-full w-[240px] flex-col overflow-y-auto bg-[#0f0f0f] pt-14 shadow-xl">
+        {/* User profile section */}
+        {session?.user ? (
+          <div className="flex items-center gap-3 border-b border-[#303030] px-4 py-4">
+            <Avatar className="h-9 w-9 border border-[#303030]">
+              <AvatarImage src={session.user.image || undefined} alt={session.user.name || 'User'} />
+              <AvatarFallback className="bg-[#f5a623] text-black text-sm font-bold">
+                {userInitial}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-sm font-medium text-[#f1f1f1]">{session.user.name || 'User'}</p>
+              <p className="truncate text-xs text-[#888]">{session.user.email}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="border-b border-[#303030] px-4 py-3">
+            <Button
+              className="w-full gap-2 bg-[#f5a623] text-black font-semibold hover:bg-[#e09515] text-sm"
+              onClick={() => {
+                setLoginModalOpen(true)
+                setSidebarOpen(false)
+              }}
+            >
+              <LogIn className="h-4 w-4" />
+              Đăng nhập
+            </Button>
+          </div>
+        )}
+
         <div className="flex-1 space-y-1 px-3 py-4">
           {/* Main navigation */}
           {mainLinks.map((link) => (
@@ -128,21 +164,23 @@ export function Sidebar() {
 
           <Separator className="my-3 bg-[#303030]" />
 
-          <Button
-            variant="ghost"
-            className={`w-full justify-start gap-6 px-3 text-sm ${
-              activeCategory === 'seller'
-                ? 'bg-[#272727] font-medium text-[#f5a623]'
-                : 'text-[#f1f1f1] hover:bg-[#1f1f1f]'
-            }`}
-            onClick={() => {
-              setActiveCategory('seller')
-              useAppStore.getState().setSidebarOpen(false)
-            }}
-          >
-            <LayoutDashboard className="h-5 w-5" />
-            Seller Dashboard
-          </Button>
+          {session?.user && (
+            <Button
+              variant="ghost"
+              className={`w-full justify-start gap-6 px-3 text-sm ${
+                activeCategory === 'seller'
+                  ? 'bg-[#272727] font-medium text-[#f5a623]'
+                  : 'text-[#f1f1f1] hover:bg-[#1f1f1f]'
+              }`}
+              onClick={() => {
+                setActiveCategory('seller')
+                useAppStore.getState().setSidebarOpen(false)
+              }}
+            >
+              <LayoutDashboard className="h-5 w-5" />
+              Seller Dashboard
+            </Button>
+          )}
 
           <Button
             variant="ghost"

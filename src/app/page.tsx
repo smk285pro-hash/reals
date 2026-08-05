@@ -16,6 +16,9 @@ import { CartDrawer } from '@/components/cart/CartDrawer'
 import { CheckoutModal } from '@/components/cart/CheckoutModal'
 import { SellerDashboard } from '@/components/seller/SellerDashboard'
 import { ScrollToTop } from '@/components/ui-custom/ScrollToTop'
+import { LoginModal } from '@/components/auth/LoginModal'
+import { RegisterModal } from '@/components/auth/RegisterModal'
+import { ForgotPasswordModal } from '@/components/auth/ForgotPasswordModal'
 import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Product, Category } from '@/types'
@@ -23,7 +26,12 @@ import { Search, PackageOpen, Heart } from 'lucide-react'
 import { Toaster } from 'sonner'
 
 export default function HomePage() {
-  const { activeCategory, searchQuery, sortBy, detailProductId, setDetailProductId } = useAppStore()
+  const {
+    activeCategory, searchQuery, sortBy, detailProductId, setDetailProductId,
+    loginModalOpen, setLoginModalOpen,
+    registerModalOpen, setRegisterModalOpen,
+    forgotPasswordModalOpen, setForgotPasswordModalOpen,
+  } = useAppStore()
   const wishlistItems = useWishlistStore((s) => s.items)
   const { addItem: addRecent } = useRecentlyViewedStore()
   const [products, setProducts] = useState<Product[]>([])
@@ -100,6 +108,24 @@ export default function HomePage() {
       <NotificationDropdown />
       <ScrollToTop />
       <MobileNav />
+
+      {/* Auth Modals */}
+      <LoginModal
+        open={loginModalOpen}
+        onOpenChange={(open) => { console.log('LoginModal onOpenChange', open); setLoginModalOpen(open); }}
+        onSwitchToRegister={() => { console.log('switchToRegister'); setLoginModalOpen(false); setTimeout(() => { console.log('setTimeout: opening register'); setRegisterModalOpen(true); }, 150); }}
+        onSwitchToForgot={() => { console.log('switchToForgot'); setLoginModalOpen(false); setTimeout(() => { console.log('setTimeout: opening forgot'); setForgotPasswordModalOpen(true); }, 150); }}
+      />
+      <RegisterModal
+        open={registerModalOpen}
+        onOpenChange={(open) => { console.log('RegisterModal onOpenChange', open); setRegisterModalOpen(open); }}
+        onSwitchToLogin={() => { console.log('switchToLogin from register'); setRegisterModalOpen(false); setTimeout(() => { console.log('setTimeout: opening login from register'); setLoginModalOpen(true); }, 150); }}
+      />
+      <ForgotPasswordModal
+        open={forgotPasswordModalOpen}
+        onOpenChange={(open) => { console.log('ForgotPasswordModal onOpenChange', open); setForgotPasswordModalOpen(open); }}
+        onSwitchToLogin={() => { console.log('switchToLogin from forgot'); setForgotPasswordModalOpen(false); setTimeout(() => { console.log('setTimeout: opening login from forgot'); setLoginModalOpen(true); }, 150); }}
+      />
 
       {/* Seller Dashboard View */}
       {isSellerView ? (

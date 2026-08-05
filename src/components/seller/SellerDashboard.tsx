@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, Search,
-  Package, ArrowLeft, Upload, Save, X, ChevronDown
+  Package, ArrowLeft, Upload, Save, X, ChevronDown, LogIn
 } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -49,8 +50,34 @@ function formatViews(n: number): string {
   return n.toString()
 }
 
+// Auth guard component
+function LoginGuard() {
+  const { setLoginModalOpen } = useAppStore()
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#0f0f0f]">
+      <div className="flex flex-col items-center gap-6 rounded-2xl border border-[#303030] bg-[#181818] p-12">
+        <div className="rounded-full bg-[#f5a623]/10 p-4">
+          <LogIn className="h-12 w-12 text-[#f5a623]" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-[#f1f1f1]">Đăng nhập để tiếp tục</h2>
+          <p className="mt-2 text-sm text-[#888]">Bạn cần đăng nhập để quản lý sản phẩm</p>
+        </div>
+        <Button
+          className="gap-2 rounded-lg bg-[#f5a623] px-8 text-black font-semibold hover:bg-[#e09515]"
+          onClick={() => setLoginModalOpen(true)}
+        >
+          <LogIn className="h-4 w-4" />
+          Đăng nhập
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function SellerDashboard() {
   const { setActiveCategory } = useAppStore()
+  const { status: authStatus } = useSession()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,6 +103,11 @@ export function SellerDashboard() {
   }, [])
 
   useEffect(() => { fetchProducts() }, [fetchProducts])
+
+  // Auth guard
+  if (authStatus === 'unauthenticated') {
+    return <LoginGuard />
+  }
 
   const filtered = products.filter((p) =>
     p.title.toLowerCase().includes(searchQ.toLowerCase()) ||
@@ -148,7 +180,6 @@ export function SellerDashboard() {
     setSaving(true)
     try {
       if (editingId) {
-        // Update
         const res = await fetch(`/api/products/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -160,7 +191,6 @@ export function SellerDashboard() {
           toast.success('Đã cập nhật sản phẩm')
         }
       } else {
-        // Create
         const res = await fetch('/api/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -180,7 +210,6 @@ export function SellerDashboard() {
     }
   }
 
-  // Thumbnail preview options
   const thumbnailPresets = [
     'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
     'https://images.unsplash.com/photo-1558618660-7c0c3b1a4e93?w=640&h=360&fit=crop',
@@ -270,7 +299,6 @@ export function SellerDashboard() {
               </div>
 
               <div className="space-y-4">
-                {/* Title */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-[#ccc]">Tên sản phẩm *</label>
                   <Input
@@ -281,7 +309,6 @@ export function SellerDashboard() {
                   />
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-[#ccc]">Mô tả</label>
                   <textarea
@@ -293,7 +320,6 @@ export function SellerDashboard() {
                   />
                 </div>
 
-                {/* Price + Free toggle */}
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="mb-1 block text-sm font-medium text-[#ccc]">Giá ($)</label>
@@ -319,7 +345,6 @@ export function SellerDashboard() {
                   </div>
                 </div>
 
-                {/* Format + Category */}
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="mb-1 block text-sm font-medium text-[#ccc]">Định dạng</label>
@@ -347,7 +372,6 @@ export function SellerDashboard() {
                   </div>
                 </div>
 
-                {/* Thumbnail */}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-[#ccc]">Thumbnail URL</label>
                   <Input
@@ -374,7 +398,6 @@ export function SellerDashboard() {
                   )}
                 </div>
 
-                {/* Duration + Tags */}
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="mb-1 block text-sm font-medium text-[#ccc]">Thời lượng video</label>
@@ -396,7 +419,6 @@ export function SellerDashboard() {
                   </div>
                 </div>
 
-                {/* Featured + Published */}
                 <div className="flex gap-4">
                   <button
                     className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition-all ${
@@ -422,7 +444,6 @@ export function SellerDashboard() {
 
                 <Separator className="bg-[#303030]" />
 
-                {/* Save */}
                 <div className="flex gap-3">
                   <Button
                     variant="ghost"
@@ -486,14 +507,11 @@ export function SellerDashboard() {
                 key={product.id}
                 className={`group flex items-center gap-4 rounded-xl border border-[#303030] bg-[#1a1a1a] p-4 transition-all hover:border-[#444] ${!product.published ? 'opacity-60' : ''}`}
               >
-                {/* Thumbnail */}
                 <img
                   src={product.thumbnail}
                   alt={product.title}
                   className="hidden h-14 w-24 shrink-0 rounded-lg object-cover sm:block"
                 />
-
-                {/* Info */}
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <h3 className="truncate text-sm font-medium text-[#f1f1f1]">{product.title}</h3>
@@ -511,22 +529,16 @@ export function SellerDashboard() {
                     <span>{product.sales} đã bán</span>
                   </div>
                 </div>
-
-                {/* Price */}
                 <div className="shrink-0 text-right">
                   <span className={`text-sm font-bold ${product.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
                     {product.isFree ? 'FREE' : `$${product.price}`}
                   </span>
                 </div>
-
-                {/* Status */}
                 <div className="hidden shrink-0 md:block">
                   <Badge className={`${product.published ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#ff6b6b]/20 text-[#ff6b6b]'}`}>
                     {product.published ? 'Đang đăng' : 'Đã ẩn'}
                   </Badge>
                 </div>
-
-                {/* Actions */}
                 <div className="flex shrink-0 items-center gap-1">
                   <Button
                     variant="ghost"

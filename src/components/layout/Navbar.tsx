@@ -1,16 +1,32 @@
 'use client'
 
-import { Search, Menu, Video, Bell, ShoppingCart, Upload, User, Share2 } from 'lucide-react'
+import { Search, Menu, Video, Bell, ShoppingCart, Upload, User, Share2, LogOut, Settings, Package, ChevronDown } from 'lucide-react'
+import { useSession, signOut } from 'next-auth/react'
 import { useAppStore, useCartStore } from '@/stores'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useEffect, useState } from 'react'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu'
+import { useEffect, useState, useRef } from 'react'
 
 export function Navbar() {
-  const { toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery, notificationOpen, setNotificationOpen } = useAppStore()
+  const {
+    toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery,
+    notificationOpen, setNotificationOpen,
+    setLoginModalOpen, setActiveCategory,
+  } = useAppStore()
   const totalItems = useCartStore((s) => s.totalItems())
   const [localSearch, setLocalSearch] = useState(searchQuery)
+  const { data: session, status } = useSession()
+  const [imageError, setImageError] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(localSearch), 300)
@@ -24,6 +40,12 @@ export function Navbar() {
       await navigator.clipboard.writeText(window.location.href)
     }
   }
+
+  const userInitial = session?.user?.name
+    ? session.user.name.charAt(0).toUpperCase()
+    : session?.user?.email
+      ? session.user.email.charAt(0).toUpperCase()
+      : 'U'
 
   return (
     <nav className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-[#303030] bg-[#0f0f0f] px-4 md:px-6">
@@ -60,13 +82,18 @@ export function Navbar() {
 
       {/* Right */}
       <div className="flex items-center gap-2 md:gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden text-white hover:bg-[#272727] md:flex"
-        >
-          <Upload className="h-5 w-5" />
-        </Button>
+        {/* Upload / Seller button - only show when logged in */}
+        {session?.user && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden text-white hover:bg-[#272727] md:flex"
+            onClick={() => setActiveCategory('seller')}
+            title="Seller Dashboard"
+          >
+            <Upload className="h-5 w-5" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -91,13 +118,73 @@ export function Navbar() {
         >
           <Share2 className="h-5 w-5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden text-white hover:bg-[#272727] md:flex"
-        >
-          <User className="h-5 w-5" />
-        </Button>
+
+        {/* Auth: User dropdown or Login button */}
+        {status === 'loading' ? (
+          <div className="h-8 w-8 animate-pulse rounded-full bg-[#272727]" />
+        ) : session?.user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full hover:bg-[#272727] p-0">
+                <Avatar className="h-8 w-8 border border-[#303030]">
+                  {!imageError && session.user.image ? (
+                    <AvatarImage
+                      src={session.user.image}
+                      alt={session.user.name || 'User'}
+                      onError={() => setImageError(true)}
+                    />
+                  ) : null}
+                  <AvatarFallback className="bg-[#f5a623] text-black text-sm font-bold">
+                    {userInitial}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-56 border-[#303030] bg-[#181818] text-[#f1f1f1]"
+            >
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium">{session.user.name || 'User'}</p>
+                  <p className="text-xs text-[#888]">{session.user.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-[#303030]" />
+              <DropdownMenuItem
+                className="cursor-pointer gap-2 text-[#ccc] focus:bg-[#272727] focus:text-[#f1f1f1]"
+                onClick={() => setActiveCategory('seller')}
+              >
+                <Package className="h-4 w-4" />
+                Quản lý sản phẩm
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer gap-2 text-[#ccc] focus:bg-[#272727] focus:text-[#f1f1f1]"
+              >
+                <Settings className="h-4 w-4" />
+                Cài đặt
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-[#303030]" />
+              <DropdownMenuItem
+                className="cursor-pointer gap-2 text-red-400 focus:bg-[#272727] focus:text-red-400"
+                onClick={() => signOut({ callbackUrl: '/' })}
+              >
+                <LogOut className="h-4 w-4" />
+                Đăng xuất
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            onClick={() => setLoginModalOpen(true)}
+            variant="ghost"
+            size="icon"
+            className="hidden text-white hover:bg-[#272727] md:flex"
+          >
+            <User className="h-5 w-5" />
+          </Button>
+        )}
+
         <Button
           onClick={() => setCartDrawerOpen(true)}
           className="flex items-center gap-2 rounded-full bg-[#f5a623] px-4 text-sm font-semibold text-black hover:bg-[#e09515]"
