@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { useAppStore } from '@/stores'
 import {
   Dialog,
   DialogContent,
@@ -33,7 +34,8 @@ interface ApplicationStatus {
 }
 
 export function SellerApplyModal({ open, onOpenChange }: SellerApplyModalProps) {
-  const { data: session } = useSession()
+  const { data: session, update: updateSession } = useSession()
+  const { setActiveCategory } = useAppStore()
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState('')
@@ -55,6 +57,15 @@ export function SellerApplyModal({ open, onOpenChange }: SellerApplyModalProps) 
           setAppStatus(data)
           if (data.application) {
             setDisplayName(data.application.displayName || '')
+          }
+          // If server says user is seller but session doesn't know, refresh session
+          if (data.isSeller && !(session?.user as any)?.isSeller) {
+            updateSession?.()
+          }
+          // If user is already a seller, auto-close modal and go to dashboard
+          if (data.isSeller) {
+            onOpenChange(false)
+            setActiveCategory('seller')
           }
         })
         .catch(() => {})
@@ -82,6 +93,10 @@ export function SellerApplyModal({ open, onOpenChange }: SellerApplyModalProps) 
         const statusRes = await fetch('/api/seller/apply')
         const statusData = await statusRes.json()
         setAppStatus(statusData)
+        // If just became seller, refresh session so UI updates
+        if (statusData.isSeller) {
+          updateSession?.()
+        }
       }
     } catch {
       setError('Có lỗi xảy ra khi gửi đơn')
@@ -120,8 +135,8 @@ export function SellerApplyModal({ open, onOpenChange }: SellerApplyModalProps) 
               <CheckCircle className="h-12 w-12 text-green-400" />
               <p className="text-lg font-medium text-green-400">Bạn đã là Seller!</p>
               <p className="text-sm text-[#888]">Bạn có thể đăng và quản lý sản phẩm ngay.</p>
-              <Button onClick={() => onOpenChange(false)} className="mt-2 bg-[#f5a623] text-black hover:bg-[#e09515]">
-                Đóng
+              <Button onClick={() => { onOpenChange(false); setActiveCategory('seller') }} className="mt-2 bg-[#f5a623] text-black hover:bg-[#e09515]">
+                Đi đến Seller Dashboard
               </Button>
             </div>
           ) : hasApplication && appStatusValue === 'PENDING' ? (
