@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { db } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
@@ -53,7 +55,7 @@ export async function GET(req: NextRequest) {
   const [products, total] = await Promise.all([
     db.product.findMany({
       where,
-      include: { seller: { select: { id: true, name: true, avatar: true, isSeller: true } } },
+      include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },
       orderBy,
       skip: (page - 1) * limit,
       take: limit,
@@ -66,22 +68,22 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ products, total, page, limit, categories })
 }
 
-// POST - Create new product
+// POST - Create new product (authenticated - assigns to logged-in user)
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
+  }
+
+  const userId = (session.user as any).id
   const body = await req.json()
 
-  // Find or create a default seller
-  let sellerId = body.sellerId
-  if (!sellerId) {
-    const defaultSeller = await db.user.findFirst({ where: { isSeller: true } })
-    if (!defaultSeller) {
-      const newSeller = await db.user.create({
-        data: { email: `seller${Date.now()}@reatube.com`, name: 'New Seller', isSeller: true },
-      })
-      sellerId = newSeller.id
-    } else {
-      sellerId = defaultSeller.id
-    }
+  // Ensure the user is a seller
+  const user = await db.user.findUnique({ where: { id: userId } })
+  if (!user?.isSeller) {
+    // Auto-promote to seller on first product creation
+    await db.user.update({ where: { id: userId }, data: { isSeller: true } })
   }
 
   const product = await db.product.create({
@@ -91,15 +93,16 @@ export async function POST(req: NextRequest) {
       price: body.price || 0,
       isFree: body.isFree || false,
       format: body.format || 'JSFX',
-      categorySlug: body.categorySlug || 'jsfx',
+      categorySlug: body.categorySlug || 'effects',
       thumbnail: body.thumbnail || 'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
+      videoUrl: body.videoUrl || null,
       duration: body.duration || null,
       tags: body.tags || '',
       featured: body.featured || false,
       published: body.published ?? true,
-      sellerId,
+      sellerId: userId, // Always assign to the logged-in user
     },
-    include: { seller: { select: { id: true, name: true, avatar: true, isSeller: true } } },
+    include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },
   })
 
   return NextResponse.json(product, { status: 201 })

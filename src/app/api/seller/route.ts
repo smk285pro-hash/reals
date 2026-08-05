@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { db } from '@/lib/db'
 
-// GET all products for seller management (including unpublished)
+// GET products for the currently logged-in seller (own channel)
 export async function GET(req: NextRequest) {
-  const url = req.nextUrl
-  const sellerId = url.searchParams.get('sellerId')
+  const session = await getServerSession(authOptions)
 
-  const where: Record<string, unknown> = {}
-  if (sellerId) where.sellerId = sellerId
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 })
+  }
 
+  const userId = (session.user as any).id
+
+  // Get only this user's products (including unpublished)
   const [products, total, categories] = await Promise.all([
     db.product.findMany({
-      where,
-      include: { seller: { select: { id: true, name: true, avatar: true, isSeller: true } } },
+      where: { sellerId: userId },
+      include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },
       orderBy: { createdAt: 'desc' },
     }),
-    db.product.count({ where }),
+    db.product.count({ where: { sellerId: userId } }),
     db.category.findMany({ orderBy: { order: 'asc' } }),
   ])
 
