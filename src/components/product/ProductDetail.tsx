@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Product } from '@/types'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 /**
  * Extract YouTube video ID from various URL formats
@@ -70,10 +70,12 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [copied, setCopied] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [muted, setMuted] = useState(true)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   // YouTube embed logic — auto-play if video exists
   const ytVideoId = product.videoUrl ? extractYouTubeVideoId(product.videoUrl) : null
-  const embedUrl = ytVideoId
+  // No-chrome URL: controls=0 truly hides YouTube controls, zoom+crop cleans residual UI
+  const noChromeUrl = ytVideoId
     ? `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&annotations=0&playsinline=1&disablekb=0&fs=1`
     : null
 
@@ -105,47 +107,67 @@ export function ProductDetail({ product }: ProductDetailProps) {
           {/* Left - Video/Image */}
           <div
             className="relative aspect-video w-full shrink-0 bg-black md:aspect-auto md:h-auto md:w-[55%]"
-            onMouseEnter={() => setHovering(true)}
-            onMouseLeave={() => setHovering(false)}
           >
             {ytVideoId ? (
-              // YouTube video: auto-play, no chrome. Custom controls appear on hover
-              <div className="relative h-full w-full overflow-hidden">
-                <iframe
-                  key={muted ? 'muted' : 'unmuted'}
-                  src={muted
-                    ? embedUrl!
-                    : `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&playsinline=1&fs=1`
-                  }
-                  title={product.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="h-full w-full border-0"
-                />
-                {/* Custom overlay controls on hover */}
-                {hovering && (
-                  <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 bg-gradient-to-t from-black/80 to-transparent px-4 py-3">
-                    <button
-                      onClick={() => setMuted(!muted)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"
-                    >
-                      {muted ? (
-                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                      ) : (
-                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
-                      )}
-                    </button>
-                    <a
-                      href={`https://www.youtube.com/watch?v=${ytVideoId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-auto flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
-                    >
-                      <Youtube className="h-3.5 w-3.5" />
-                      YouTube
-                    </a>
-                  </div>
-                )}
+              // YouTube video: auto-play, no chrome by default (controls=0 + zoom/crop)
+              // On hover: remove zoom (show at 100%) and show YouTube's own controls
+              <div
+                className={`relative h-full w-full overflow-hidden transition-[border-radius] duration-300`}
+                onMouseEnter={() => setHovering(true)}
+                onMouseLeave={() => setHovering(false)}
+              >
+                {/*
+                  Zoom + crop technique:
+                  - Default (not hovering): iframe zoomed 112% to push YouTube's residual chrome
+                    (title bar, logo, gradient) outside the overflow:hidden container → cropped away
+                  - Hovering: iframe at 100% scale, YouTube controls=1 via URL swap → full controls visible
+                */}
+                <div
+                  className={`h-full w-full transition-transform duration-300 ${
+                    hovering ? 'scale-100' : 'scale-[1.12]'
+                  }`}
+                  style={{ transformOrigin: 'center center' }}
+                >
+                  <iframe
+                    key={`${muted ? 'muted' : 'unmuted'}-${hovering ? 'ctrl' : 'noctrl'}`}
+                    src={
+                      hovering
+                        ? `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&mute=${muted ? 1 : 0}&controls=1&rel=0&modestbranding=1&playsinline=1&fs=1`
+                        : (noChromeUrl!.replace('mute=1', `mute=${muted ? 1 : 0}`))
+                    }
+                    title={product.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="h-full w-full border-0"
+                  />
+                </div>
+                {/* Custom overlay controls — always available, more visible on hover */}
+                <div
+                  className={`absolute inset-x-0 bottom-0 flex items-center gap-3 px-4 py-3 transition-opacity duration-300 ${
+                    hovering ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}
+                >
+                  <button
+                    onClick={() => setMuted(!muted)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"
+                  >
+                    {muted ? (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                    ) : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+                    )}
+                  </button>
+                  <a
+                    href={`https://www.youtube.com/watch?v=${ytVideoId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
+                  >
+                    <Youtube className="h-3.5 w-3.5" />
+                    YouTube
+                  </a>
+                </div>
               </div>
             ) : (
               // No video — just thumbnail
