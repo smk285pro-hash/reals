@@ -60,8 +60,7 @@ export function Navbar() {
           <Menu className="h-5 w-5" />
         </Button>
         <a href="#" className="flex items-center gap-1 text-xl font-bold tracking-tight text-white">
-          Rea<span className="text-[#f5a623]">Tube</span>{' '}
-          <span className="hidden text-sm font-normal text-[#aaa] sm:inline">Store</span>
+          re<span className="text-[#f5a623]">als</span>
         </a>
       </div>
 

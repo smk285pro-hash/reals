@@ -10,7 +10,7 @@ export function Footer() {
           {/* Brand */}
           <div>
             <h3 className="mb-3 text-lg font-bold text-white">
-              Rea<span className="text-[#f5a623]">Tube</span> Store
+              re<span className="text-[#f5a623]">als</span>
             </h3>
             <p className="text-sm leading-relaxed text-[#888]">
               Marketplace #1 cho plugin, script và extension dành cho REAPER DAW.
