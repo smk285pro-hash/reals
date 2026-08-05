@@ -5,13 +5,33 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 
+// Support multiple owner emails (comma-separated)
+const OWNER_EMAILS = (process.env.OWNER_EMAILS || process.env.OWNER_EMAIL || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+
+// Auto-promote owner email to ADMIN on first Google login
+async function ensureAdminRole(email: string) {
+  if (!OWNER_EMAILS.length || !OWNER_EMAILS.includes(email.toLowerCase())) return
+
+  const user = await db.user.findUnique({ where: { email } })
+  if (user && user.role !== 'ADMIN') {
+    await db.user.update({
+      where: { email },
+      data: { role: 'ADMIN', isSeller: true },
+    })
+    console.log(`[Auth] Auto-promoted ${email} to ADMIN (OWNER_EMAILS match)`)
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   providers: [
+    // Google OAuth — primary auth method (more secure than password)
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      allowDangerousEmailAccountLinking: true, // Allow linking Google account to existing email
     }),
+    // Credentials — fallback for dev/demo, disabled in production if Google is configured
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -19,6 +39,11 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Mật khẩu', type: 'password' },
       },
       async authorize(credentials) {
+        // Block credential login for admin account in production
+        if (process.env.NODE_ENV === 'production' && OWNER_EMAILS.includes(credentials?.email?.toLowerCase() || '')) {
+          throw new Error('Admin phải đăng nhập bằng Google để bảo mật')
+        }
+
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Vui lòng nhập email và mật khẩu')
         }
@@ -54,6 +79,13 @@ export const authOptions: NextAuthOptions = {
     error: '/',
   },
   callbacks: {
+    async signIn({ user, account, profile }) {
+      // On Google sign-in, auto-promote owner to ADMIN
+      if (account?.provider === 'google' && user.email) {
+        await ensureAdminRole(user.email)
+      }
+      return true
+    },
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id
