@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "reals — Plugin & Script Marketplace cho REAPER",
+  title: "RealS — Plugin & Script Marketplace cho REAPER",
   description: "Marketplace #1 cho JSFX, ReaScript, Extension và Template dành cho REAPER DAW. Mua bán plugin audio chuyên nghiệp.",
   keywords: ["REAPER", "JSFX", "ReaScript", "audio plugin", "DAW", "mixing", "mastering"],
   icons: {

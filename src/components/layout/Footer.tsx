@@ -10,7 +10,7 @@ export function Footer() {
           {/* Brand */}
           <div>
             <h3 className="mb-3 text-lg font-bold text-white">
-              re<span className="text-[#f5a623]">als</span>
+              Real<span className="text-[#f5a623]">S</span>
             </h3>
             <p className="text-sm leading-relaxed text-[#888]">
               Marketplace #1 cho plugin, script và extension dành cho REAPER DAW.
@@ -53,7 +53,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-[#303030] pt-6 md:flex-row">
           <p className="text-xs text-[#666]">
-            © 2025 reals. All rights reserved.
+            © 2025 RealS. All rights reserved.
           </p>
           <div className="flex gap-4">
             <a href="#" className="text-[#888] hover:text-white">

@@ -137,7 +137,7 @@ export function RegisterModal({ open, onOpenChange, onSwitchToLogin }: RegisterM
         <div className="px-6 pt-4 pb-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-center text-[#f1f1f1]">
-              Tạo tài khoản reals
+              Tạo tài khoản RealS
             </DialogTitle>
             <DialogDescription className="text-center text-[#888] text-sm">
               Tham gia cộng đồng REAPER lớn nhất

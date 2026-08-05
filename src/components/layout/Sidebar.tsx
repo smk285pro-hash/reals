@@ -201,7 +201,7 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="border-t border-[#303030] px-4 py-4 text-xs text-[#888]">
-          <p>© 2025 reals</p>
+          <p>© 2025 RealS</p>
           <p className="mt-1">Plugin & Script marketplace cho REAPER</p>
         </div>
       </aside>

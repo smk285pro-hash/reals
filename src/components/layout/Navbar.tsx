@@ -35,7 +35,7 @@ export function Navbar() {
 
   const handleShare = async () => {
     if (navigator.share) {
-      await navigator.share({ title: 'reals', url: window.location.href })
+      await navigator.share({ title: 'RealS', url: window.location.href })
     } else {
       await navigator.clipboard.writeText(window.location.href)
     }
@@ -60,7 +60,7 @@ export function Navbar() {
           <Menu className="h-5 w-5" />
         </Button>
         <a href="#" className="flex items-center gap-1 text-xl font-bold tracking-tight text-white">
-          re<span className="text-[#f5a623]">als</span>
+          Real<span className="text-[#f5a623]">S</span>
         </a>
       </div>
 
