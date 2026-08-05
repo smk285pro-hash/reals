@@ -189,9 +189,11 @@ export default function AdminDashboard() {
   // Actions
   const updateRole = async (id: string, role: string) => {
     try {
+      // Sync isSeller with role: SELLER → true, anything else → false
+      const isSeller = role === 'SELLER'
       const res = await fetch('/api/admin/users', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, role }),
+        body: JSON.stringify({ id, role, isSeller }),
       })
       if (res.ok) { toast.success(`Đã cập nhật role thành ${role}`); fetchUsers() }
       else { const e = await res.json(); toast.error(e.error || 'Lỗi') }

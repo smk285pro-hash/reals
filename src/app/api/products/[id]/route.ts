@@ -35,6 +35,12 @@ export async function PUT(
       return NextResponse.json({ error: 'Phiên đăng nhập không hợp lệ' }, { status: 401 })
     }
 
+    // Verify the user is still a seller
+    const user = await db.user.findUnique({ where: { id: userId } })
+    if (!user?.isSeller) {
+      return NextResponse.json({ error: 'Bạn không còn quyền seller. Vui lòng liên hệ admin.' }, { status: 403 })
+    }
+
     // Check ownership
     const existing = await db.product.findUnique({ where: { id } })
     if (!existing) {
@@ -99,6 +105,12 @@ export async function DELETE(
     const userId = (session.user as any).id
     if (!userId) {
       return NextResponse.json({ error: 'Phiên đăng nhập không hợp lệ' }, { status: 401 })
+    }
+
+    // Verify the user is still a seller
+    const user = await db.user.findUnique({ where: { id: userId } })
+    if (!user?.isSeller) {
+      return NextResponse.json({ error: 'Bạn không còn quyền seller. Vui lòng liên hệ admin.' }, { status: 403 })
     }
 
     // Check ownership

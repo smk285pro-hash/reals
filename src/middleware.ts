@@ -125,7 +125,11 @@ export async function middleware(req: NextRequest) {
         loginUrl.searchParams.set('callbackUrl', pathname)
         return NextResponse.redirect(loginUrl)
       }
-      if (token.role !== 'SELLER' && token.role !== 'ADMIN' && !token.isSeller) {
+      // Must have SELLER or ADMIN role AND isSeller must be true (for SELLER)
+      // ADMIN can always access, SELLER needs isSeller=true
+      const isAdmin = token.role === 'ADMIN'
+      const isSellerWithFlag = token.role === 'SELLER' && token.isSeller === true
+      if (!isAdmin && !isSellerWithFlag) {
         const homeUrl = new URL('/', req.url)
         return NextResponse.redirect(homeUrl)
       }

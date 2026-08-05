@@ -67,14 +67,36 @@ export async function PUT(req: NextRequest) {
     }
 
     const data: any = {}
-    if (role) data.role = role
-    if (typeof isSeller === 'boolean') data.isSeller = isSeller
+    if (role) {
+      data.role = role
+      // Auto-sync isSeller with role to prevent desync
+      // When role is SELLER, isSeller must be true
+      // When role is USER or ADMIN (non-seller), isSeller must be false
+      if (role === 'SELLER') {
+        data.isSeller = true
+      } else {
+        data.isSeller = false
+      }
+    }
+    // Allow explicit isSeller override only when no role change (e.g. approving seller application)
+    if (!role && typeof isSeller === 'boolean') {
+      data.isSeller = isSeller
+    }
 
     const user = await db.user.update({
       where: { id },
       data,
       select: { id: true, name: true, email: true, role: true, isSeller: true },
     })
+
+    // When downgrading from seller to non-seller, unpublish all their products
+    // so they don't appear in the marketplace anymore
+    if (role && role !== 'SELLER' && data.isSeller === false) {
+      await db.product.updateMany({
+        where: { sellerId: id, published: true },
+        data: { published: false, reviewStatus: 'REJECTED', reviewNote: 'Tài khoản seller đã bị hạ cấp' },
+      })
+    }
 
     return NextResponse.json(user)
   } catch (error: any) {
