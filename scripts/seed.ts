@@ -1,69 +1,195 @@
-import { db } from '@/lib/db'
+import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
-async function seed() {
-  // Create categories
-  const categories = await Promise.all([
-    db.category.upsert({ where: { slug: 'jsfx' }, update: {}, create: { name: 'JSFX', slug: 'jsfx', icon: 'cpu', order: 1 } }),
-    db.category.upsert({ where: { slug: 'reascript' }, update: {}, create: { name: 'ReaScript', slug: 'reascript', icon: 'file-code', order: 2 } }),
-    db.category.upsert({ where: { slug: 'extension' }, update: {}, create: { name: 'Extension', slug: 'extension', icon: 'puzzle', order: 3 } }),
-    db.category.upsert({ where: { slug: 'mixing' }, update: {}, create: { name: 'Mixing', slug: 'mixing', icon: 'sliders', order: 4 } }),
-    db.category.upsert({ where: { slug: 'game-audio' }, update: {}, create: { name: 'Game Audio', slug: 'game-audio', icon: 'gamepad-2', order: 5 } }),
-    db.category.upsert({ where: { slug: 'midi' }, update: {}, create: { name: 'MIDI', slug: 'midi', icon: 'music', order: 6 } }),
-    db.category.upsert({ where: { slug: 'template' }, update: {}, create: { name: 'Template', slug: 'template', icon: 'layout-template', order: 7 } }),
-  ])
+const prisma = new PrismaClient()
 
-  // Create sellers
-  const seller = await db.user.upsert({
-    where: { email: 'reaforge@example.com' },
-    update: {},
-    create: { email: 'reaforge@example.com', name: 'ReaForge', bio: 'Chuyên gia JSFX & ReaScript cho REAPER', isSeller: true },
-  })
-  const seller2 = await db.user.upsert({
-    where: { email: 'mixlab@example.com' },
-    update: {},
-    create: { email: 'mixlab@example.com', name: 'MixLab Audio', bio: 'Mixing & Mastering tools', isSeller: true },
-  })
-  const seller3 = await db.user.upsert({
-    where: { email: 'soundcraft@example.com' },
-    update: {},
-    create: { email: 'soundcraft@example.com', name: 'SoundCraft Studio', bio: 'Premium audio plugins & extensions', isSeller: true },
-  })
+async function main() {
+  console.log('🌱 Seeding database...')
 
-  const thumbs = [
-    'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1558618660-7c0c3b1a4e93?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1511379928520-ba4c0e00a8db?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1516289587443-44c3f05e5c4f?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1584900501285-24ab11a14c6c?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1493225452364-bab4a9fcd274?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1524678375300-39c8a8dd5a0a?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1558618660-7c0c3b1a4e93?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1511379928520-ba4c0e00a8db?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1516289587443-44c3f05e5c4f?w=640&h=360&fit=crop',
-    'https://images.unsplash.com/photo-1584900501285-24ab11a14c6c?w=640&h=360&fit=crop',
+  // 1. Create categories
+  const categories = [
+    { name: 'Effects', slug: 'effects', icon: '🎵', order: 1 },
+    { name: 'Instruments', slug: 'instruments', icon: '🎹', order: 2 },
+    { name: 'MIDI', slug: 'midi', icon: '🎛️', order: 3 },
+    { name: 'Utility', slug: 'utility', icon: '🔧', order: 4 },
+    { name: 'Templates', slug: 'templates', icon: '📄', order: 5 },
+    { name: 'Scripts', slug: 'scripts', icon: '📝', order: 6 },
+    { name: 'Themes', slug: 'themes', icon: '🎨', order: 7 },
+    { name: 'Tutorials', slug: 'tutorials', icon: '📚', order: 8 },
   ]
 
-  const products = [
-    { title: 'TapeDrift JSFX - Saturation ấm cho Vocal & Drum Bus', description: 'Plugin JSFX mô phỏng tape saturation cổ điển với điều khiển bias, hysteresis và oversampling. Phù hợp cho vocal chain và drum bus. Tạo màu âm ấm đặc trưng analog mà không bị artifact.', price: 29, isFree: false, format: 'JSFX', categorySlug: 'jsfx', thumbnail: thumbs[0], duration: '12:45', views: 15200, sales: 340, rating: 4.8, sellerId: seller.id, tags: 'saturation,tape,vocal,analog', featured: true },
-    { title: 'Adaptive Layer Builder - Tự động sinh variation cho Game Audio', description: 'ReaScript tự động tạo layer variation cho game audio. Hỗ trợ random pitch, volume và time stretch. Tích hợp với REAPER region manager.', price: 45, isFree: false, format: 'ReaScript Lua', categorySlug: 'game-audio', thumbnail: thumbs[1], duration: '08:20', views: 8200, sales: 210, rating: 4.6, sellerId: seller.id, tags: 'game-audio,layers,variation,auto', featured: true },
-    { title: 'Pitch Drift Mini - Hiệu ứng drift nhẹ miễn phí cho Synth', description: 'JSFX miễn phí tạo hiệu ứng pitch drift nhẹ cho synthesizer. Lý tưởng cho ambient và lo-fi production. CPU usage cực thấp.', price: 0, isFree: true, format: 'JSFX', categorySlug: 'jsfx', thumbnail: thumbs[2], duration: '05:10', views: 32000, sales: 5200, rating: 4.9, sellerId: seller.id, tags: 'pitch,drift,free,ambient,lofi', featured: true },
-    { title: 'Batch Render Pro Extension - Render hàng loạt region cực nhanh', description: 'C++ Extension render hàng loạt region với naming convention tùy chỉnh. Hỗ trợ parallel render, metadata tagging và auto-filename.', price: 59, isFree: false, format: 'C++ Extension', categorySlug: 'extension', thumbnail: thumbs[3], duration: '22:30', views: 4500, sales: 180, rating: 4.7, sellerId: seller.id, tags: 'render,batch,region,export', featured: true },
-    { title: 'MIDI Humanizer - Groove tự nhiên cho piano roll trong 1 click', description: 'ReaScript thêm swing, velocity variation và timing offset cho MIDI notes. Biết nhận diện genre và tự điều chỉnh parameter.', price: 25, isFree: false, format: 'ReaScript Lua', categorySlug: 'midi', thumbnail: thumbs[4], duration: '10:05', views: 12000, sales: 560, rating: 4.5, sellerId: seller.id, tags: 'midi,humanize,groove,swing', featured: false },
-    { title: 'Glue Bus Comp - Bus compressor trong suốt cho Mix Bus', description: 'JSFX glue compressor mô phỏng SSL bus comp. Tính năng: auto makeup gain, sidechain filter, và 3 mode (Stereo/Dual/Mid-Side).', price: 49, isFree: false, format: 'JSFX', categorySlug: 'mixing', thumbnail: thumbs[5], duration: '18:42', views: 9800, sales: 290, rating: 4.8, sellerId: seller2.id, tags: 'compressor,bus,mixing,ssl,glue', featured: true },
-    { title: 'Spectral Analyzer Pro - Phân tích FFT thời gian thực', description: 'JSFX spectrum analyzer với spectrogram, peak hold và frequency masking. Hỗ trợ overlay nhiều track cùng lúc.', price: 35, isFree: false, format: 'JSFX', categorySlug: 'mixing', thumbnail: thumbs[6], duration: '15:30', views: 7600, sales: 195, rating: 4.4, sellerId: seller2.id, tags: 'analyzer,spectrum,fft,metering', featured: false },
-    { title: 'ReaLearn Template Pack - 50 template cho mọi genre', description: 'Bộ 50 project template cho REAPER: Pop, Rock, EDM, Orchestral, Podcast, Game Audio. Đi kèm routing template và FX chain.', price: 39, isFree: false, format: 'Template', categorySlug: 'template', thumbnail: thumbs[7], duration: '25:00', views: 5400, sales: 420, rating: 4.3, sellerId: seller3.id, tags: 'template,project,genre,routing', featured: false },
-    { title: 'Auto-Fade Smart - Tự động crossfade cho edit workflow', description: 'ReaScript tự động tạo crossfade khi split/crop item. Detect zero-crossing và điều chỉnh fade shape theo material.', price: 0, isFree: true, format: 'ReaScript Python', categorySlug: 'reascript', thumbnail: thumbs[8], duration: '07:15', views: 18500, sales: 3800, rating: 4.7, sellerId: seller.id, tags: 'crossfade,edit,auto,free', featured: true },
-    { title: 'Spatial Panner 3D - 3D audio panner cho Dolby Atmos', description: 'JSFX 3D panner với distance attenuation, Doppler và HRTF preview. Xuất ADM BWF cho Dolby Atmos renderer.', price: 79, isFree: false, format: 'JSFX', categorySlug: 'mixing', thumbnail: thumbs[9], duration: '30:00', views: 3200, sales: 85, rating: 4.9, sellerId: seller3.id, tags: 'spatial,3d,atmos,panner,dolby', featured: true },
-    { title: 'MIDI Chord Detect - Nhận diện & sửa chord tự động', description: 'ReaScript phân tích MIDI notes, nhận diện chord (triad, 7th, extensions) và gợi ý sửa lỗi harmony.', price: 19, isFree: false, format: 'ReaScript Lua', categorySlug: 'midi', thumbnail: thumbs[10], duration: '09:40', views: 14100, sales: 620, rating: 4.6, sellerId: seller2.id, tags: 'midi,chord,theory,detect', featured: false },
-    { title: 'Limiter-X - True peak limiter với look-ahead', description: 'JSFX true peak limiter với 4x oversampling, look-ahead buffer và ISP metering. Tối ưu cho mastering chain.', price: 55, isFree: false, format: 'JSFX', categorySlug: 'mixing', thumbnail: thumbs[11], duration: '14:20', views: 6700, sales: 155, rating: 4.8, sellerId: seller3.id, tags: 'limiter,mastering,true-peak,oversampling', featured: true },
-  ]
-
-  for (const p of products) {
-    await db.product.create({ data: p })
+  for (const cat of categories) {
+    await prisma.category.upsert({
+      where: { slug: cat.slug },
+      update: cat,
+      create: cat,
+    })
   }
+  console.log(`✅ Created ${categories.length} categories`)
 
-  console.log(`✅ Seeded ${categories.length} categories, 3 sellers, ${products.length} products`)
+  // 2. Create admin/seller user
+  const hashedPassword = await bcrypt.hash('admin123', 12)
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@reatube.store' },
+    update: {},
+    create: {
+      email: 'admin@reatube.store',
+      name: 'ReaTube Admin',
+      avatar: 'https://ui-avatars.com/api/?name=ReaTube+Admin&background=f5a623&color=fff&size=128',
+      bio: 'Quản trị viên ReaTube Store',
+      isSeller: true,
+      password: hashedPassword,
+    },
+  })
+  console.log(`✅ Created admin user: admin@reatube.store / admin123`)
+
+  // 3. Create a demo seller
+  const demoPassword = await bcrypt.hash('demo123', 12)
+  const demoSeller = await prisma.user.upsert({
+    where: { email: 'demo@reatube.store' },
+    update: {},
+    create: {
+      email: 'demo@reatube.store',
+      name: 'REAPER Developer',
+      avatar: 'https://ui-avatars.com/api/?name=REAPER+Dev&background=6366f1&color=fff&size=128',
+      bio: 'Chuyên phát triển plugin và script cho REAPER DAW',
+      isSeller: true,
+      password: demoPassword,
+    },
+  })
+  console.log(`✅ Created demo seller: demo@reatube.store / demo123`)
+
+  // 4. Create sample products
+  const products = [
+    {
+      title: 'ReaVerb Pro - Cabinet Impulse Loader',
+      description: 'Plugin tải impulse response cao cấp cho REAPER. Hỗ trợ WAV, AIFF, FLAC với preview trực tiếp. Tích hợp 50+ cabinet IR mẫu từ các amp huyền thoại. Low-latency realtime processing.',
+      price: 19.99,
+      isFree: false,
+      format: 'JSFX',
+      categorySlug: 'effects',
+      thumbnail: 'https://placehold.co/640x360/1a1a2e/f5a623?text=ReaVerb+Pro',
+      videoUrl: 'https://www.youtube.com/watch?v=demo1',
+      duration: '3:45',
+      views: 1250,
+      sales: 89,
+      rating: 4.8,
+      sellerId: demoSeller.id,
+      tags: 'reverb,impulse,cabinet,IR,effects',
+      featured: true,
+      published: true,
+    },
+    {
+      title: 'MIDI Chord Creator',
+      description: 'Tự động tạo progressions hợp âm trên MIDI track. Hỗ trợ 30+ scales, voice leading thông minh, và export sang notation. Tương thích VST3 và standalone.',
+      price: 0,
+      isFree: true,
+      format: 'ReaScript',
+      categorySlug: 'midi',
+      thumbnail: 'https://placehold.co/640x360/1a1a2e/6366f1?text=Chord+Creator',
+      videoUrl: 'https://www.youtube.com/watch?v=demo2',
+      duration: '5:12',
+      views: 2340,
+      sales: 567,
+      rating: 4.6,
+      sellerId: demoSeller.id,
+      tags: 'midi,chord,progression,music,theory',
+      featured: true,
+      published: true,
+    },
+    {
+      title: 'ReaSynth Gold - Analog Synth',
+      description: 'Synthesizer analog mô phỏng cho REAPER. 2 oscillators với unison, multimode filter, 3 ADSR envelopes, 3 LFOs, built-in effects chain. CPU-efficient design.',
+      price: 29.99,
+      isFree: false,
+      format: 'VST3',
+      categorySlug: 'instruments',
+      thumbnail: 'https://placehold.co/640x360/1a1a2e/ec4899?text=ReaSynth+Gold',
+      videoUrl: 'https://www.youtube.com/watch?v=demo3',
+      duration: '7:30',
+      views: 890,
+      sales: 45,
+      rating: 4.9,
+      sellerId: demoSeller.id,
+      tags: 'synth,analog,oscillator,filter,instrument',
+      featured: true,
+      published: true,
+    },
+    {
+      title: 'Auto-Align Tracks',
+      description: 'Tự động căn chỉnh thời gian giữa các track (drum substitution, multi-mic alignment). Detect transients chính xác đến sample-level. Batch processing cho cả project.',
+      price: 14.99,
+      isFree: false,
+      format: 'ReaScript',
+      categorySlug: 'utility',
+      thumbnail: 'https://placehold.co/640x360/1a1a2e/22c55e?text=Auto+Align',
+      videoUrl: 'https://www.youtube.com/watch?v=demo4',
+      duration: '2:18',
+      views: 670,
+      sales: 34,
+      rating: 4.5,
+      sellerId: demoSeller.id,
+      tags: 'align,time,transient,utility,batch',
+      featured: false,
+      published: true,
+    },
+    {
+      title: 'Dark Theme Pro',
+      description: 'Theme tối chuyên nghiệp cho REAPER 7. Tối ưu mắt cho session dài, DPI-aware, 150+ icon custom. Hỗ trợ multi-monitor setups.',
+      price: 4.99,
+      isFree: false,
+      format: 'Theme',
+      categorySlug: 'themes',
+      thumbnail: 'https://placehold.co/640x360/1a1a2e/8b5cf6?text=Dark+Theme+Pro',
+      videoUrl: null,
+      duration: null,
+      views: 340,
+      sales: 120,
+      rating: 4.3,
+      sellerId: demoSeller.id,
+      tags: 'theme,dark,dpi,icons,ui',
+      featured: false,
+      published: true,
+    },
+    {
+      title: 'Mastering Chain Template',
+      description: 'Template mastering chuyên nghiệp với chain FX tối ưu: EQ → Compressor → Limiter → Metering. Presets cho Pop, Rock, EDM, Classical.',
+      price: 0,
+      isFree: true,
+      format: 'Template',
+      categorySlug: 'templates',
+      thumbnail: 'https://placehold.co/640x360/1a1a2e/f59e0b?text=Mastering+Chain',
+      videoUrl: 'https://www.youtube.com/watch?v=demo6',
+      duration: '10:00',
+      views: 1890,
+      sales: 450,
+      rating: 4.7,
+      sellerId: demoSeller.id,
+      tags: 'mastering,template,eq,compressor,limiter',
+      featured: true,
+      published: true,
+    },
+  ]
+
+  for (const product of products) {
+    const existing = await prisma.product.findFirst({ where: { title: product.title } })
+    if (!existing) {
+      await prisma.product.create({ data: product })
+    }
+  }
+  console.log(`✅ Created ${products.length} sample products`)
+
+  console.log('\n🎉 Seed completed successfully!')
+  console.log('\n📋 Account Info:')
+  console.log('   Admin: admin@reatube.store / admin123')
+  console.log('   Demo:  demo@reatube.store / demo123')
 }
 
-seed().catch(console.error).finally(() => db.$disconnect())
+main()
+  .catch((e) => {
+    console.error('❌ Seed failed:', e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

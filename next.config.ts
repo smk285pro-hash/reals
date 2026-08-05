@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  serverExternalPackages: ["@prisma/client", "bcryptjs"],
   images: {
     remotePatterns: [
       {
