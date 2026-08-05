@@ -67,7 +67,7 @@ export const authOptions: NextAuthOptions = {
         if (dbUser) {
           token.id = dbUser.id
           token.isSeller = dbUser.isSeller
-          token.picture = dbUser.avatar || token.picture
+          token.picture = dbUser.image || dbUser.avatar || token.picture
         }
       }
       return token

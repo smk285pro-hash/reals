@@ -12,7 +12,8 @@ model User {
   id            String    @id @default(cuid())
   email         String    @unique
   name          String?
-  avatar        String?
+  image         String?   // NextAuth standard field (Google OAuth avatar)
+  avatar        String?   // Custom display avatar
   bio           String?
   isSeller      Boolean   @default(false)
   password      String?   // For credential-based auth (hashed)
