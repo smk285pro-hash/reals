@@ -40,6 +40,12 @@ function rateLimit(ip: string, path: string): { allowed: boolean; remaining: num
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+
+  // Skip middleware entirely for auth routes — let NextAuth handle them
+  if (pathname.startsWith('/api/auth')) {
+    return NextResponse.next()
+  }
+
   const response = NextResponse.next()
 
   // ─── Security Headers ───
