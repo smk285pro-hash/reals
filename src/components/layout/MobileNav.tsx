@@ -1,13 +1,14 @@
 'use client'
 
-import { Home, Search, Heart, ShoppingCart, User, LayoutDashboard, Store } from 'lucide-react'
+import { Home, Search, Heart, ShoppingCart, User, LayoutDashboard, Store, Bell } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { useAppStore, useCartStore, useWishlistStore } from '@/stores'
+import { useAppStore, useCartStore, useWishlistStore, useNotificationStore } from '@/stores'
 
 export function MobileNav() {
-  const { setActiveCategory, setCartDrawerOpen, setLoginModalOpen, setSellerApplyModalOpen } = useAppStore()
+  const { setActiveCategory, setCartDrawerOpen, setLoginModalOpen, setSellerApplyModalOpen, setNotificationOpen } = useAppStore()
   const cartCount = useCartStore((s) => s.totalItems())
   const wishlistCount = useWishlistStore((s) => s.items.length)
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
   const { data: session } = useSession()
 
   return (
@@ -36,18 +37,34 @@ export function MobileNav() {
             </span>
           )}
         </button>
-        <button
-          onClick={() => setCartDrawerOpen(true)}
-          className="relative flex flex-col items-center gap-0.5 text-[#aaa]"
-        >
-          <ShoppingCart className="h-5 w-5" />
-          <span className="text-[10px]">Giỏ hàng</span>
-          {cartCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-center bg-[#f5a623] px-1 text-[9px] font-bold text-black">
-              {cartCount}
-            </span>
-          )}
-        </button>
+        {/* Notification bell - show for logged in users */}
+        {session?.user ? (
+          <button
+            onClick={() => setNotificationOpen(true)}
+            className="relative flex flex-col items-center gap-0.5 text-[#aaa]"
+          >
+            <Bell className="h-5 w-5" />
+            <span className="text-[10px]">Thông báo</span>
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#f5a623] px-1 text-[9px] font-bold text-black">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => setCartDrawerOpen(true)}
+            className="relative flex flex-col items-center gap-0.5 text-[#aaa]"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            <span className="text-[10px]">Giỏ hàng</span>
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-center bg-[#f5a623] px-1 text-[9px] font-bold text-black">
+                {cartCount}
+              </span>
+            )}
+          </button>
+        )}
         {session?.user && (session.user as any)?.isSeller ? (
           <button
             onClick={() => setActiveCategory('seller')}

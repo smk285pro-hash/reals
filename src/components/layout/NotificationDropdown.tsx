@@ -250,11 +250,22 @@ export function NotificationDropdown() {
         </div>
 
         {/* Footer */}
-        {totalCount > 20 && (
+        {totalCount > notifications.length && (
           <div className="border-t border-[#303030] px-4 py-2">
             <Button
               variant="ghost"
               className="w-full text-xs text-[#3ea6ff] hover:text-[#3ea6ff]"
+              onClick={() => {
+                // Load more notifications
+                fetch('/api/notifications?limit=50')
+                  .then(r => r.ok ? r.json() : null)
+                  .then(data => {
+                    if (data) {
+                      setNotifications(data.notifications || [])
+                    }
+                  })
+                  .catch(() => {})
+              }}
             >
               Xem tất cả {totalCount} thông báo
             </Button>

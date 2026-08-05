@@ -77,7 +77,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Thiếu notification ID' }, { status: 400 })
     }
 
-    // Mark single as read
+    // Mark single as read (ownership check)
+    const existing = await db.notification.findFirst({
+      where: { id, userId: user.id },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'Không tìm thấy thông báo' }, { status: 404 })
+    }
+
     const notification = await db.notification.update({
       where: { id },
       data: { read: true },
@@ -106,6 +113,14 @@ export async function DELETE(req: NextRequest) {
     const { id } = await req.json()
     if (!id) {
       return NextResponse.json({ error: 'Thiếu notification ID' }, { status: 400 })
+    }
+
+    // Ownership check - can only delete own notifications
+    const existing = await db.notification.findFirst({
+      where: { id, userId: user.id },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'Không tìm thấy thông báo' }, { status: 404 })
     }
 
     await db.notification.delete({

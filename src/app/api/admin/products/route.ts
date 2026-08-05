@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { db } from '@/lib/db'
-import { notifyProductApproved, notifyProductRejected } from '@/lib/notifications'
+import { notifyProductApproved, notifyProductRejected, createNotification } from '@/lib/notifications'
 
 // GET /api/admin/products - All products (with review status filter)
 export async function GET(req: NextRequest) {
@@ -103,6 +103,21 @@ export async function DELETE(req: NextRequest) {
 
     const { id } = await req.json()
     if (!id) return NextResponse.json({ error: 'Thiếu product ID' }, { status: 400 })
+
+    // Get product info before deleting (for notification)
+    const product = await db.product.findUnique({
+      where: { id },
+      include: { seller: { select: { id: true } } },
+    })
+    if (product) {
+      // Notify seller that their product was deleted by admin
+      await createNotification({
+        userId: product.sellerId,
+        type: 'SYSTEM',
+        title: 'Sản phẩm đã bị xóa',
+        message: `Sản phẩm "${product.title}" của bạn đã bị admin xóa.`,
+      })
+    }
 
     await db.review.deleteMany({ where: { productId: id } })
     await db.product.delete({ where: { id } })

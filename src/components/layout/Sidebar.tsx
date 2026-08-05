@@ -2,10 +2,10 @@
 
 import {
   Home, Flame, Clock, Tag, Heart, Download,
-  Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star, LayoutDashboard, LogIn, Store
+  Settings, HelpCircle, ChevronDown, ChevronUp, ShoppingBag, Star, LayoutDashboard, LogIn, Store, Bell
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { useAppStore, useWishlistStore } from '@/stores'
+import { useAppStore, useWishlistStore, useNotificationStore } from '@/stores'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -31,8 +31,9 @@ const categoryLinks = [
 ]
 
 export function Sidebar() {
-  const { sidebarOpen, setActiveCategory, activeCategory, setLoginModalOpen, setSidebarOpen, setSellerApplyModalOpen } = useAppStore()
+  const { sidebarOpen, setActiveCategory, activeCategory, setLoginModalOpen, setSidebarOpen, setSellerApplyModalOpen, setNotificationOpen } = useAppStore()
   const wishlistCount = useWishlistStore((s) => s.items.length)
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
   const { data: session } = useSession()
   const [categoriesExpanded, setCategoriesExpanded] = useState(true)
 
@@ -162,6 +163,25 @@ export function Sidebar() {
               </span>
             )}
           </Button>
+
+          {session?.user && (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-6 px-3 text-sm text-[#f1f1f1] hover:bg-[#1f1f1f]"
+              onClick={() => {
+                setNotificationOpen(true)
+                useAppStore.getState().setSidebarOpen(false)
+              }}
+            >
+              <Bell className="h-5 w-5" />
+              Thông báo
+              {unreadCount > 0 && (
+                <span className="ml-auto rounded-full bg-[#f5a623] px-2 py-0.5 text-[10px] font-bold text-black">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Button>
+          )}
 
           <Separator className="my-3 bg-[#303030]" />
 

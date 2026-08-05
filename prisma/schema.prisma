@@ -159,4 +159,7 @@ model Notification {
   link       String?  // Optional URL to navigate to when clicked
   read       Boolean  @default(false)
   createdAt  DateTime @default(now())
+
+  @@index([userId])           // Fast lookup by user
+  @@index([userId, read])     // Fast unread count query
 }
