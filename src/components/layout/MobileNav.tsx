@@ -59,7 +59,7 @@ export function MobileNav() {
             <ShoppingCart className="h-5 w-5" />
             <span className="text-[10px]">Giỏ hàng</span>
             {cartCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-center bg-[#f5a623] px-1 text-[9px] font-bold text-black">
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#f5a623] px-1 text-[9px] font-bold text-black">
                 {cartCount}
               </span>
             )}

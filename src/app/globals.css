@@ -82,8 +82,28 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
   body {
     @apply bg-background text-foreground;
+    /* Prevent horizontal scroll caused by any descendant that overflows the viewport */
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  /* Make sure long flex children don't push layout out — enforce wrapping by default */
+  body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+/* iOS safe-area utilities — used by MobileNav bottom bar */
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }
 

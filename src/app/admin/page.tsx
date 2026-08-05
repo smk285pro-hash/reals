@@ -310,24 +310,24 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="border-b border-[#303030] bg-[#0f0f0f] px-4 py-4 md:px-6">
         <div className="mx-auto max-w-[1200px]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="text-[#aaa] hover:bg-[#272727]" onClick={() => setActiveCategory('all')}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button variant="ghost" size="icon" className="shrink-0 text-[#aaa] hover:bg-[#272727]" onClick={() => setActiveCategory('all')}>
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="flex items-center gap-2">
-                <Shield className="h-6 w-6 text-red-500" />
-                <div>
-                  <h1 className="text-lg font-bold text-white">Admin Dashboard</h1>
-                  <p className="text-xs text-[#888]">Quản trị hệ thống RealS</p>
+              <div className="flex items-center gap-2 min-w-0">
+                <Shield className="h-6 w-6 shrink-0 text-red-500" />
+                <div className="min-w-0">
+                  <h1 className="text-lg font-bold text-white truncate">Admin Dashboard</h1>
+                  <p className="text-xs text-[#888] truncate">Quản trị hệ thống RealS</p>
                 </div>
               </div>
             </div>
-            <div className="flex gap-1 rounded-lg bg-[#1f1f1f] p-1 overflow-x-auto">
+            <div className="-mx-1 flex gap-1 overflow-x-auto rounded-lg bg-[#1f1f1f] p-1 md:mx-0 md:overflow-visible">
               {(['overview', 'products', 'users', 'applications', 'reports', 'analytics'] as Tab[]).map(t => (
                 <button
                   key={t}
-                  className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                  className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
                     tab === t ? 'bg-[#f5a623] text-black' : 'text-[#aaa] hover:text-white'
                   }`}
                   onClick={() => setTab(t)}
@@ -404,23 +404,23 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-2">
                 {products.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-medium text-[#f1f1f1]">{p.title}</h3>
+                  <div key={p.id} className="flex items-start gap-3 rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-medium text-[#f1f1f1] break-words">{p.title}</h3>
                         <Badge className={reviewColor[p.reviewStatus] || ''}>{p.reviewStatus}</Badge>
-                        {p.featured && <Star className="h-3.5 w-3.5 fill-[#f5a623] text-[#f5a623]" />}
+                        {p.featured && <Star className="h-3.5 w-3.5 shrink-0 fill-[#f5a623] text-[#f5a623]" />}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-[#aaa]">
-                        <span>{p.seller.name || p.seller.email}</span>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#aaa]">
+                        <span className="truncate">{p.seller.name || p.seller.email}</span>
                         <span>•</span>
                         <span className={p.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}>{p.isFree ? 'FREE' : `$${p.price}`}</span>
                         <span>•</span>
                         <span>{new Date(p.createdAt).toLocaleDateString('vi-VN')}</span>
                       </div>
-                      {p.reviewNote && <p className="text-xs text-red-400">Lý do: {p.reviewNote}</p>}
+                      {p.reviewNote && <p className="text-xs text-red-400 break-words">Lý do: {p.reviewNote}</p>}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                       {p.reviewStatus === 'PENDING' && (
                         <>
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-[#3fb950] hover:bg-[#3fb950]/10" onClick={() => reviewProduct(p.id, 'APPROVED')} title="Duyệt">
@@ -459,17 +459,17 @@ export default function AdminDashboard() {
             ) : (
               <div className="space-y-2">
                 {users.map(u => (
-                  <div key={u.id} className="flex items-center gap-3 rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#303030] text-sm font-bold text-white">
+                  <div key={u.id} className="flex items-start gap-3 rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#303030] text-sm font-bold text-white">
                       {(u.name || u.email)[0].toUpperCase()}
                     </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-medium text-[#f1f1f1]">{u.name || 'Chưa đặt tên'}</h3>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-medium text-[#f1f1f1] truncate">{u.name || 'Chưa đặt tên'}</h3>
                         <Badge className={roleColor[u.role] || ''}>{u.role}</Badge>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-[#aaa]">
-                        <span>{u.email}</span>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#aaa]">
+                        <span className="truncate">{u.email}</span>
                         <span>•</span>
                         <span>{u._count.products} sản phẩm</span>
                         <span>•</span>
@@ -478,11 +478,11 @@ export default function AdminDashboard() {
                         <span>{new Date(u.createdAt).toLocaleDateString('vi-VN')}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                       <select
                         value={u.role}
                         onChange={e => updateRole(u.id, e.target.value)}
-                        className="rounded-lg border border-[#303030] bg-[#0f0f0f] px-2 py-1 text-xs text-white outline-none"
+                        className="max-w-[90px] rounded-lg border border-[#303030] bg-[#0f0f0f] px-2 py-1 text-xs text-white outline-none"
                       >
                         <option value="USER">USER</option>
                         <option value="SELLER">SELLER</option>
@@ -526,13 +526,13 @@ export default function AdminDashboard() {
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f5a623]/20 text-sm font-bold text-[#f5a623]">
                         {(app.displayName || '?')[0].toUpperCase()}
                       </div>
-                      <div className="flex-1 space-y-2">
+                      <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-sm font-medium text-[#f1f1f1]">{app.displayName}</h3>
+                          <h3 className="text-sm font-medium text-[#f1f1f1] truncate">{app.displayName}</h3>
                           <Badge className={reviewColor[app.status] || ''}>{app.status === 'PENDING' ? 'Chờ duyệt' : app.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}</Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-[#aaa]">
-                          <span>{app.user?.email || app.userId}</span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#aaa]">
+                          <span className="truncate">{app.user?.email || app.userId}</span>
                           <span>•</span>
                           <span>{new Date(app.createdAt).toLocaleDateString('vi-VN')}</span>
                           {app.reviewedAt && (
@@ -543,11 +543,11 @@ export default function AdminDashboard() {
                           )}
                         </div>
                         {app.bio && (
-                          <p className="text-xs text-[#aaa]">Bio: {app.bio}</p>
+                          <p className="text-xs text-[#aaa] break-words">Bio: {app.bio}</p>
                         )}
                         {app.portfolioUrl && (
-                          <a href={app.portfolioUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#3ea6ff] hover:underline">
-                            <ExternalLink className="h-3 w-3" /> Portfolio
+                          <a href={app.portfolioUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#3ea6ff] hover:underline break-all">
+                            <ExternalLink className="h-3 w-3 shrink-0" /> Portfolio
                           </a>
                         )}
                         {app.categories && app.categories.length > 0 && (
@@ -558,45 +558,45 @@ export default function AdminDashboard() {
                           </div>
                         )}
                         {app.reason && (
-                          <p className="text-xs text-[#f1f1f1]">Lý do đăng ký: {app.reason}</p>
+                          <p className="text-xs text-[#f1f1f1] break-words">Lý do đăng ký: {app.reason}</p>
                         )}
                         {app.adminNote && (
-                          <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-2 text-xs text-red-400">
+                          <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-2 text-xs text-red-400 break-words">
                             📝 Ghi chú: {app.adminNote}
                           </div>
                         )}
                       </div>
-                      {/* Actions */}
-                      {app.status === 'PENDING' && (
-                        <div className="flex flex-col items-end gap-2">
-                          <Button size="sm" className="h-7 bg-[#3fb950] text-white hover:bg-[#3fb950]/80" onClick={() => reviewApplication(app.id, 'APPROVED')}>
-                            <CheckCircle className="mr-1 h-3.5 w-3.5" /> Duyệt
-                          </Button>
-                          {rejectingId === app.id ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                value={rejectNote}
-                                onChange={e => setRejectNote(e.target.value)}
-                                placeholder="Lý do từ chối..."
-                                className="h-7 w-36 rounded-lg border border-[#303030] bg-[#0f0f0f] px-2 text-xs text-white outline-none placeholder:text-[#666]"
-                                autoFocus
-                                onKeyDown={e => { if (e.key === 'Enter' && rejectNote.trim()) reviewApplication(app.id, 'REJECTED', rejectNote.trim()) }}
-                              />
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:bg-red-400/10" onClick={() => { if (rejectNote.trim()) reviewApplication(app.id, 'REJECTED', rejectNote.trim()) }}>
-                                <Send className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 text-[#888] hover:bg-[#272727]" onClick={() => { setRejectingId(null); setRejectNote('') }}>
-                                <XCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button size="sm" variant="ghost" className="h-7 text-red-400 hover:bg-red-400/10" onClick={() => { setRejectingId(app.id); setRejectNote('') }}>
-                              <XCircle className="mr-1 h-3.5 w-3.5" /> Từ chối
-                            </Button>
-                          )}
-                        </div>
-                      )}
                     </div>
+                    {/* Actions — full-width row below on mobile, right-aligned on desktop */}
+                    {app.status === 'PENDING' && (
+                      <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-[#303030] pt-3">
+                        <Button size="sm" className="h-7 bg-[#3fb950] text-white hover:bg-[#3fb950]/80" onClick={() => reviewApplication(app.id, 'APPROVED')}>
+                          <CheckCircle className="mr-1 h-3.5 w-3.5" /> Duyệt
+                        </Button>
+                        {rejectingId === app.id ? (
+                          <div className="flex w-full items-center gap-1 sm:w-auto">
+                            <input
+                              value={rejectNote}
+                              onChange={e => setRejectNote(e.target.value)}
+                              placeholder="Lý do từ chối..."
+                              className="h-7 min-w-0 flex-1 rounded-lg border border-[#303030] bg-[#0f0f0f] px-2 text-xs text-white outline-none placeholder:text-[#666] sm:flex-none sm:w-48"
+                              autoFocus
+                              onKeyDown={e => { if (e.key === 'Enter' && rejectNote.trim()) reviewApplication(app.id, 'REJECTED', rejectNote.trim()) }}
+                            />
+                            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-red-400 hover:bg-red-400/10" onClick={() => { if (rejectNote.trim()) reviewApplication(app.id, 'REJECTED', rejectNote.trim()) }}>
+                              <Send className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-[#888] hover:bg-[#272727]" onClick={() => { setRejectingId(null); setRejectNote('') }}>
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button size="sm" variant="ghost" className="h-7 text-red-400 hover:bg-red-400/10" onClick={() => { setRejectingId(app.id); setRejectNote('') }}>
+                            <XCircle className="mr-1 h-3.5 w-3.5" /> Từ chối
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -628,10 +628,10 @@ export default function AdminDashboard() {
                 {reports.map(r => (
                   <div key={r.id} className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
                     <div className="flex items-start gap-3">
-                      <div className={`rounded-lg p-2 ${r.type === 'PRODUCT' ? 'bg-[#a855f7]/20 text-[#a855f7]' : r.type === 'USER' ? 'bg-[#3ea6ff]/20 text-[#3ea6ff]' : 'bg-[#f5a623]/20 text-[#f5a623]'}`}>
+                      <div className={`shrink-0 rounded-lg p-2 ${r.type === 'PRODUCT' ? 'bg-[#a855f7]/20 text-[#a855f7]' : r.type === 'USER' ? 'bg-[#3ea6ff]/20 text-[#3ea6ff]' : 'bg-[#f5a623]/20 text-[#f5a623]'}`}>
                         {r.type === 'PRODUCT' ? <Package className="h-4 w-4" /> : r.type === 'USER' ? <Users className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
                       </div>
-                      <div className="flex-1 space-y-2">
+                      <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="outline" className="text-xs border-[#303030]">{typeLabel[r.type] || r.type}</Badge>
                           <Badge className={reportStatusColor[r.status] || ''}>{r.status}</Badge>
@@ -642,59 +642,48 @@ export default function AdminDashboard() {
                         {r.target && (
                           <div className="rounded-lg bg-[#0f0f0f] p-2 text-xs">
                             {r.type === 'PRODUCT' && (
-                              <span className="text-[#f1f1f1]">📦 {r.target.title} — by {r.target.seller?.name || 'Unknown'}</span>
+                              <span className="text-[#f1f1f1] break-words">📦 {r.target.title} — by {r.target.seller?.name || 'Unknown'}</span>
                             )}
                             {r.type === 'USER' && (
-                              <span className="text-[#f1f1f1]">👤 {r.target.name || r.target.email}</span>
+                              <span className="text-[#f1f1f1] break-words">👤 {r.target.name || r.target.email}</span>
                             )}
                             {r.type === 'REVIEW' && (
-                              <span className="text-[#f1f1f1]">💬 Rating: {r.target.rating}/5 — "{r.target.comment?.slice(0, 80)}"</span>
+                              <span className="text-[#f1f1f1] break-words">💬 Rating: {r.target.rating}/5 — "{r.target.comment?.slice(0, 80)}"</span>
                             )}
                           </div>
                         )}
                         {r.description && (
-                          <p className="text-xs text-[#aaa]">Mô tả: {r.description}</p>
+                          <p className="text-xs text-[#aaa] break-words">Mô tả: {r.description}</p>
                         )}
-                        <div className="text-xs text-[#666]">
+                        <div className="text-xs text-[#666] break-words">
                           Báo cáo bởi: {r.reporter.name || r.reporter.email}
                         </div>
                         {r.adminNote && (
-                          <div className="rounded-lg bg-[#3ea6ff]/5 border border-[#3ea6ff]/20 p-2 text-xs text-[#3ea6ff]">
+                          <div className="rounded-lg bg-[#3ea6ff]/5 border border-[#3ea6ff]/20 p-2 text-xs text-[#3ea6ff] break-words">
                             📝 Admin: {r.adminNote}
                           </div>
                         )}
                       </div>
-                      {/* Actions */}
-                      {r.status === 'PENDING' && (
-                        <div className="flex items-center gap-1">
+                    </div>
+                    {/* Actions — below content on mobile */}
+                    {(r.status === 'PENDING' || r.status === 'REVIEWED') && (
+                      <div className="mt-3 flex flex-wrap items-center justify-end gap-1 border-t border-[#303030] pt-3">
+                        {r.status === 'PENDING' && (
                           <Button size="sm" variant="ghost" className="h-7 text-[#3ea6ff] hover:bg-[#3ea6ff]/10" onClick={() => handleReport(r.id, 'REVIEWED')}>
                             Đang xem
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-[#3fb950] hover:bg-[#3fb950]/10" onClick={() => {
-                            const action = r.type === 'PRODUCT' ? 'UNPUBLISH' : r.type === 'USER' ? 'BAN' : 'DELETE'
-                            if (confirm(`Xử lý báo cáo này? Hành động: ${action}`)) handleReport(r.id, 'ACTIONED', undefined, action)
-                          }}>
-                            Xử lý
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-[#888] hover:bg-[#272727]" onClick={() => handleReport(r.id, 'DISMISSED', 'Báo cáo không chính xác')}>
-                            Bỏ qua
-                          </Button>
-                        </div>
-                      )}
-                      {r.status === 'REVIEWED' && (
-                        <div className="flex items-center gap-1">
-                          <Button size="sm" variant="ghost" className="h-7 text-[#3fb950] hover:bg-[#3fb950]/10" onClick={() => {
-                            const action = r.type === 'PRODUCT' ? 'UNPUBLISH' : r.type === 'USER' ? 'BAN' : 'DELETE'
-                            if (confirm(`Xử lý báo cáo? Hành động: ${action}`)) handleReport(r.id, 'ACTIONED', undefined, action)
-                          }}>
-                            Xử lý
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 text-[#888] hover:bg-[#272727]" onClick={() => handleReport(r.id, 'DISMISSED')}>
-                            Bỏ qua
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                        <Button size="sm" variant="ghost" className="h-7 text-[#3fb950] hover:bg-[#3fb950]/10" onClick={() => {
+                          const action = r.type === 'PRODUCT' ? 'UNPUBLISH' : r.type === 'USER' ? 'BAN' : 'DELETE'
+                          if (confirm(`Xử lý báo cáo này? Hành động: ${action}`)) handleReport(r.id, 'ACTIONED', undefined, action)
+                        }}>
+                          Xử lý
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-[#888] hover:bg-[#272727]" onClick={() => handleReport(r.id, 'DISMISSED', r.status === 'PENDING' ? 'Báo cáo không chính xác' : undefined)}>
+                          Bỏ qua
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

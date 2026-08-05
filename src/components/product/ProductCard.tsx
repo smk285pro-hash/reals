@@ -164,25 +164,25 @@ export function ProductCard({ product }: ProductCardProps) {
             {initials}
           </div>
 
-          <div className="flex-1 space-y-0.5">
-            <h3 className="line-clamp-2 text-sm font-medium leading-snug text-[#f1f1f1]">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <h3 className="line-clamp-2 break-words text-sm font-medium leading-snug text-[#f1f1f1]">
               {product.title}
             </h3>
             <div className="flex items-center gap-1 text-xs text-[#aaa]">
-              <span>{product.seller.name}</span>
-              <BadgeCheck className="h-3 w-3 text-[#3ea6ff]" />
+              <span className="truncate">{product.seller.name}</span>
+              <BadgeCheck className="h-3 w-3 shrink-0 text-[#3ea6ff]" />
             </div>
             {/* Stats: rating • views • sales — always visible */}
             <div className="flex items-center gap-2 text-xs text-[#888]">
-              <span className="flex items-center gap-0.5">
+              <span className="flex shrink-0 items-center gap-0.5">
                 <Star className="h-3 w-3 fill-[#f5a623] text-[#f5a623]" />
                 <span className="text-[#f5a623]">{product.rating}</span>
               </span>
-              <span className="flex items-center gap-0.5">
+              <span className="flex shrink-0 items-center gap-0.5">
                 <Eye className="h-3 w-3" />
                 {formatViews(product.views)}
               </span>
-              <span>{product.sales} bán</span>
+              <span className="shrink-0">{product.sales} bán</span>
             </div>
             {/* Format tag */}
             <span className="mt-1 inline-block rounded border border-[#303030] bg-[#1f1f1f] px-1.5 py-0.5 text-[10px] font-medium text-[#3ea6ff]">

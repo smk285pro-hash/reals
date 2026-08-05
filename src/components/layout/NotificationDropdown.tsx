@@ -159,7 +159,7 @@ export function NotificationDropdown() {
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={() => setNotificationOpen(false)} />
-      <div className="fixed right-4 top-14 z-50 w-[380px] overflow-hidden rounded-xl border border-[#303030] bg-[#0f0f0f] shadow-2xl">
+      <div className="fixed left-2 right-2 top-14 z-50 w-[calc(100vw-1rem)] max-w-[380px] overflow-hidden rounded-xl border border-[#303030] bg-[#0f0f0f] shadow-2xl sm:left-auto sm:right-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#303030] px-4 py-3">
           <div className="flex items-center gap-2">

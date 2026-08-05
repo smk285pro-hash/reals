@@ -631,7 +631,7 @@ export function SellerDashboard() {
                   />
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
                   <div className="flex-1">
                     <label className="mb-1 block text-sm font-medium text-[#ccc]">Giá ($)</label>
                     <Input
@@ -644,7 +644,7 @@ export function SellerDashboard() {
                   </div>
                   <div className="flex items-end gap-2">
                     <button
-                      className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition-all ${
+                      className={`w-full whitespace-nowrap rounded-lg border px-4 py-2.5 text-sm font-medium transition-all sm:w-auto ${
                         form.isFree
                           ? 'border-[#3fb950] bg-[#3fb950]/20 text-[#3fb950]'
                           : 'border-[#303030] bg-[#1a1a1a] text-[#888] hover:border-[#555]'
@@ -656,7 +656,7 @@ export function SellerDashboard() {
                   </div>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
                   <div className="flex-1">
                     <label className="mb-1 block text-sm font-medium text-[#ccc]">Định dạng</label>
                     <select
@@ -903,21 +903,21 @@ export function SellerDashboard() {
                 key={product.id}
                 className={`group rounded-xl border border-[#303030] bg-[#1a1a1a] p-4 transition-all hover:border-[#444] ${!product.published ? 'opacity-60' : ''}`}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                   <img
                     src={product.thumbnail}
                     alt={product.title}
                     className="hidden h-14 w-24 shrink-0 rounded-lg object-cover sm:block"
                   />
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate text-sm font-medium text-[#f1f1f1]">{product.title}</h3>
                       {product.featured && <Star className="h-3.5 w-3.5 shrink-0 fill-[#f5a623] text-[#f5a623]" />}
                       <ReviewStatusBadge status={product.reviewStatus} />
                     </div>
                     {/* Review note for rejected products */}
                     {product.reviewStatus === 'REJECTED' && product.reviewNote && (
-                      <div className="mt-1 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300">
+                      <div className="mt-1 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300 break-words">
                         <span className="font-medium">Lý do:</span> {product.reviewNote}
                       </div>
                     )}
@@ -928,64 +928,70 @@ export function SellerDashboard() {
                       <Badge variant="outline" className="border-[#303030] bg-[#0f0f0f] text-[#888]">
                         {product.categorySlug}
                       </Badge>
-                      <span>{formatViews(product.views)} views</span>
-                      <span>•</span>
-                      <span>{product.sales} đã bán</span>
+                      <span className="shrink-0">{formatViews(product.views)} views</span>
+                      <span className="shrink-0">•</span>
+                      <span className="shrink-0">{product.sales} đã bán</span>
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
                     <span className={`text-sm font-bold ${product.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
                       {product.isFree ? 'FREE' : `$${product.price}`}
                     </span>
+                    <div className="mt-1 md:hidden">
+                      <Badge className={`${product.published ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#ff6b6b]/20 text-[#ff6b6b]'}`}>
+                        {product.published ? 'Đang đăng' : 'Đã ẩn'}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="hidden shrink-0 md:block">
                     <Badge className={`${product.published ? 'bg-[#3fb950]/20 text-[#3fb950]' : 'bg-[#ff6b6b]/20 text-[#ff6b6b]'}`}>
                       {product.published ? 'Đang đăng' : 'Đã ẩn'}
                     </Badge>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {/* Re-submit button for rejected products */}
-                    {product.reviewStatus === 'REJECTED' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-1 text-amber-400 hover:bg-amber-400/10"
-                        onClick={() => handleResubmit(product.id)}
-                        disabled={resubmittingId === product.id}
-                        title="Gửi lại để duyệt"
-                      >
-                        <RefreshCw className={`h-3.5 w-3.5 ${resubmittingId === product.id ? 'animate-spin' : ''}`} />
-                        <span className="text-xs">Gửi lại</span>
-                      </Button>
-                    )}
+                </div>
+                {/* Action buttons row — below content on mobile */}
+                <div className="mt-3 flex items-center justify-end gap-1 border-t border-[#303030] pt-3">
+                  {/* Re-submit button for rejected products */}
+                  {product.reviewStatus === 'REJECTED' && (
                     <Button
                       variant="ghost"
-                      size="icon"
-                      className={`h-8 w-8 ${product.published ? 'text-[#3fb950] hover:bg-[#3fb950]/10' : 'text-[#888] hover:bg-[#272727]'}`}
-                      onClick={() => togglePublish(product)}
-                      title={product.published ? 'Ẩn sản phẩm' : 'Đăng sản phẩm'}
+                      size="sm"
+                      className="h-8 gap-1 text-amber-400 hover:bg-amber-400/10"
+                      onClick={() => handleResubmit(product.id)}
+                      disabled={resubmittingId === product.id}
+                      title="Gửi lại để duyệt"
                     >
-                      {product.published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      <RefreshCw className={`h-3.5 w-3.5 ${resubmittingId === product.id ? 'animate-spin' : ''}`} />
+                      <span className="text-xs">Gửi lại</span>
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-[#3ea6ff] hover:bg-[#3ea6ff]/10"
-                      onClick={() => openEdit(product)}
-                      title="Chỉnh sửa"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-400 hover:bg-red-400/10"
-                      onClick={() => setDeleteConfirm(product.id)}
-                      title="Xóa"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 ${product.published ? 'text-[#3fb950] hover:bg-[#3fb950]/10' : 'text-[#888] hover:bg-[#272727]'}`}
+                    onClick={() => togglePublish(product)}
+                    title={product.published ? 'Ẩn sản phẩm' : 'Đăng sản phẩm'}
+                  >
+                    {product.published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-[#3ea6ff] hover:bg-[#3ea6ff]/10"
+                    onClick={() => openEdit(product)}
+                    title="Chỉnh sửa"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-red-400 hover:bg-red-400/10"
+                    onClick={() => setDeleteConfirm(product.id)}
+                    title="Xóa"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             ))}

@@ -37,7 +37,7 @@ export function CategoryBar({ categories }: CategoryBarProps) {
 
   return (
     <div className="sticky top-14 z-40 border-b border-[#303030] bg-[#0f0f0f]">
-      <ScrollArea className="w-full whitespace-nowrap">
+      <ScrollArea className="w-full whitespace-nowrap overscroll-x-contain">
         <div className="flex gap-3 px-4 py-3 md:px-6">
           {mergedChips.map((chip) => (
             <button
