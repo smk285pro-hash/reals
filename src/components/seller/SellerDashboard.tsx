@@ -92,11 +92,26 @@ export function SellerDashboard() {
     setLoading(true)
     try {
       const res = await fetch('/api/seller')
-      const data = await res.json()
-      setProducts(data.products)
-      setCategories(data.categories)
-    } catch {
-      toast.error('Lỗi tải sản phẩm')
+      if (res.ok) {
+        const data = await res.json()
+        setProducts(data.products || [])
+        setCategories(data.categories || [])
+      } else {
+        const err = await res.json().catch(() => ({}))
+        console.error('[fetchProducts] Error:', res.status, err)
+        setProducts([])
+        setCategories([])
+        if (res.status === 401) {
+          toast.error('Vui lòng đăng nhập lại')
+        } else {
+          toast.error(err.error || 'Lỗi tải sản phẩm')
+        }
+      }
+    } catch (e) {
+      console.error('[fetchProducts] Catch:', e)
+      setProducts([])
+      setCategories([])
+      toast.error('Lỗi kết nối server')
     } finally {
       setLoading(false)
     }
@@ -123,8 +138,8 @@ export function SellerDashboard() {
         body: JSON.stringify({ ...product, published: !product.published }),
       })
       if (res.ok) {
-        setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, published: !p.published } : p))
         toast.success(product.published ? 'Đã ẩn sản phẩm' : 'Đã đăng sản phẩm')
+        await fetchProducts()
       } else {
         const err = await res.json().catch(() => ({}))
         toast.error(err.error || `Lỗi cập nhật (${res.status})`)
@@ -139,9 +154,9 @@ export function SellerDashboard() {
     try {
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' })
       if (res.ok) {
-        setProducts((prev) => prev.filter((p) => p.id !== id))
         toast.success('Đã xóa sản phẩm')
         setDeleteConfirm(null)
+        await fetchProducts()
       } else {
         const err = await res.json().catch(() => ({}))
         toast.error(err.error || `Lỗi xóa sản phẩm (${res.status})`)
@@ -197,8 +212,6 @@ export function SellerDashboard() {
           body: JSON.stringify(form),
         })
         if (res.ok) {
-          const updated = await res.json()
-          setProducts((prev) => prev.map((p) => p.id === editingId ? updated : p))
           toast.success('Đã cập nhật sản phẩm')
           success = true
         } else {
@@ -212,8 +225,6 @@ export function SellerDashboard() {
           body: JSON.stringify(form),
         })
         if (res.ok) {
-          const newProduct = await res.json()
-          setProducts((prev) => [newProduct, ...prev])
           toast.success('Đã đăng sản phẩm mới')
           success = true
         } else {
@@ -221,8 +232,13 @@ export function SellerDashboard() {
           toast.error(err.error || `Lỗi đăng sản phẩm (${res.status})`)
         }
       }
-      if (success) setShowForm(false)
-    } catch {
+      if (success) {
+        setShowForm(false)
+        // Refresh product list from server after create/update
+        await fetchProducts()
+      }
+    } catch (e) {
+      console.error('[handleSave] Error:', e)
       toast.error('Lỗi kết nối server')
     } finally {
       setSaving(false)
