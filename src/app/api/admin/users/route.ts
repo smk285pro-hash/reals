@@ -70,9 +70,9 @@ export async function PUT(req: NextRequest) {
     if (role) {
       data.role = role
       // Auto-sync isSeller with role to prevent desync
-      // When role is SELLER, isSeller must be true
-      // When role is USER or ADMIN (non-seller), isSeller must be false
-      if (role === 'SELLER') {
+      // SELLER → isSeller=true, USER → isSeller=false
+      // ADMIN keeps isSeller=true (admin can manage products)
+      if (role === 'SELLER' || role === 'ADMIN') {
         data.isSeller = true
       } else {
         data.isSeller = false

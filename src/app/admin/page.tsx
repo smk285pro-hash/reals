@@ -189,8 +189,8 @@ export default function AdminDashboard() {
   // Actions
   const updateRole = async (id: string, role: string) => {
     try {
-      // Sync isSeller with role: SELLER → true, anything else → false
-      const isSeller = role === 'SELLER'
+      // Sync isSeller with role: SELLER/ADMIN → true, USER → false
+      const isSeller = role === 'SELLER' || role === 'ADMIN'
       const res = await fetch('/api/admin/users', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, role, isSeller }),

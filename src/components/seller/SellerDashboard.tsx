@@ -118,7 +118,7 @@ export function SellerDashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   // Verify seller status from server on mount (not just session cache)
-  // This catches cases where admin downgraded the user but session still has isSeller=true
+  // This catches cases where admin changed the user's seller status but session is stale
   const [serverSellerStatus, setServerSellerStatus] = useState<boolean | null>(null)
   useEffect(() => {
     if (authStatus !== 'authenticated') return
@@ -126,9 +126,11 @@ export function SellerDashboard() {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data) {
-          setServerSellerStatus(data.isSeller === true)
-          // If server says not seller but session thinks it is, force refresh session
-          if (data.isSeller === false && (session?.user as any)?.isSeller === true) {
+          const serverIsSeller = data.isSeller === true
+          setServerSellerStatus(serverIsSeller)
+          // If server and session disagree, force refresh session to sync
+          const sessionIsSeller = (session?.user as any)?.isSeller === true
+          if (serverIsSeller !== sessionIsSeller) {
             updateSession?.()
           }
         }
