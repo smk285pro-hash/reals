@@ -1,0 +1,712 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+model admin_notification_reads {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notification_id     String              @db.Uuid
+  user_id             String              @db.Uuid
+  read_at             DateTime            @default(now()) @db.Timestamptz(6)
+  admin_notifications admin_notifications @relation(fields: [notification_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "admin_notification_reads_notification_id_admin_notifications_id")
+  users               users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "admin_notification_reads_user_id_users_id_fk")
+
+  @@unique([notification_id, user_id], map: "admin_notification_reads_notification_user_key")
+  @@index([user_id, read_at], map: "admin_notification_reads_user_idx")
+}
+
+model admin_notifications {
+  id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  event_key                String                      @unique
+  kind                     String
+  title                    String
+  body                     String
+  href                     String?
+  read_at                  DateTime?                   @db.Timestamptz(6)
+  created_at               DateTime                    @default(now()) @db.Timestamptz(6)
+  audience                 admin_notification_audience @default(owner_admin)
+  admin_notification_reads admin_notification_reads[]
+
+  @@index([read_at, created_at], map: "admin_notifications_unread_created_idx")
+}
+
+model comment_reactions {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  comment_id       String           @db.Uuid
+  user_id          String           @db.Uuid
+  kind             reaction_kind
+  created_at       DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime         @default(now()) @db.Timestamptz(6)
+  product_comments product_comments @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "comment_reactions_comment_id_product_comments_id_fk")
+  users            users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "comment_reactions_user_id_users_id_fk")
+
+  @@unique([comment_id, user_id], map: "comment_reactions_comment_user_key")
+  @@index([comment_id, kind], map: "comment_reactions_comment_kind_idx")
+  @@index([user_id], map: "comment_reactions_user_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model comment_revisions {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  comment_id         String           @db.Uuid
+  version            Int
+  body               String
+  rating_half_steps  Int?
+  created_by_user_id String?          @db.Uuid
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  product_comments   product_comments @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "comment_revisions_comment_id_product_comments_id_fk")
+  users              users?           @relation(fields: [created_by_user_id], references: [id], onUpdate: NoAction, map: "comment_revisions_created_by_user_id_users_id_fk")
+
+  @@unique([comment_id, version], map: "comment_revisions_comment_version_key")
+  @@index([comment_id, created_at], map: "comment_revisions_comment_created_idx")
+}
+
+model donations {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider_ref String   @unique
+  email        String?
+  name         String?
+  amount_cents Int
+  currency     String   @default("USD")
+  message      String?
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model download_grants {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id           String    @db.Uuid
+  product_slug       String
+  token_hash         String    @unique
+  download_count     Int       @default(0)
+  max_downloads      Int       @default(10)
+  expires_at         DateTime  @db.Timestamptz(6)
+  revoked_at         DateTime? @db.Timestamptz(6)
+  last_downloaded_at DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  orders             orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "download_grants_order_id_orders_id_fk")
+
+  @@index([order_id], map: "download_grants_order_idx")
+}
+
+model licenses {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String           @db.Uuid
+  product_id        String           @db.Uuid
+  order_id          String?          @db.Uuid
+  provider          payment_provider @default(payhip)
+  license_key_hash  String
+  license_key_last4 String
+  buyer_email       String
+  enabled           Boolean          @default(true)
+  verified_at       DateTime         @default(now()) @db.Timestamptz(6)
+  revoked_at        DateTime?        @db.Timestamptz(6)
+  created_at        DateTime         @default(now()) @db.Timestamptz(6)
+  purchased_at      DateTime?        @db.Timestamptz(6)
+  orders            orders?          @relation(fields: [order_id], references: [id], onUpdate: NoAction, map: "licenses_order_id_orders_id_fk")
+  products          products         @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "licenses_product_id_products_id_fk")
+  users             users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "licenses_user_id_users_id_fk")
+
+  @@unique([product_id, license_key_hash], map: "licenses_product_hash_key")
+  @@index([order_id], map: "licenses_order_idx")
+  @@index([user_id], map: "licenses_user_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model moderation_events {
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target_type         moderation_target_type
+  target_id           String                 @db.Uuid
+  actor_user_id       String                 @db.Uuid
+  actor_role_snapshot staff_role
+  action              moderation_action
+  previous_state      String
+  next_state          String
+  reason              moderation_reason?
+  note                String?
+  target_content_hash String?
+  created_at          DateTime               @default(now()) @db.Timestamptz(6)
+  users               users                  @relation(fields: [actor_user_id], references: [id], onUpdate: NoAction, map: "moderation_events_actor_user_id_users_id_fk")
+
+  @@index([actor_user_id, created_at], map: "moderation_events_actor_created_idx")
+  @@index([target_type, target_id, created_at], map: "moderation_events_target_created_idx")
+}
+
+model orders {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind                 order_kind
+  email                String
+  product_slug         String
+  amount_cents         Int                   @default(0)
+  currency             String                @default("USD")
+  provider_ref         String?
+  delivered_at         DateTime?             @db.Timestamptz(6)
+  created_at           DateTime              @default(now()) @db.Timestamptz(6)
+  provider             payment_provider      @default(free)
+  user_id              String?               @db.Uuid
+  payhip_fee_cents     Int                   @default(0)
+  stripe_fee_cents     Int                   @default(0)
+  refunded_at          DateTime?             @db.Timestamptz(6)
+  product_id           String?               @db.Uuid
+  download_grants      download_grants[]
+  licenses             licenses[]
+  products             products?             @relation(fields: [product_id], references: [id], onUpdate: NoAction, map: "orders_product_id_products_id_fk")
+  users                users?                @relation(fields: [user_id], references: [id], onUpdate: NoAction, map: "orders_user_id_users_id_fk")
+  product_entitlements product_entitlements?
+
+  @@unique([provider, provider_ref], map: "orders_provider_ref_key")
+  @@index([email])
+  @@index([product_id])
+  @@index([product_slug], map: "orders_product_idx")
+  @@index([product_id, user_id, refunded_at], map: "orders_product_user_refund_idx")
+  @@index([user_id], map: "orders_user_idx")
+}
+
+model password_reset_tokens {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @unique
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "password_reset_tokens_user_id_users_id_fk")
+
+  @@index([user_id, expires_at], map: "password_reset_tokens_user_expires_idx")
+}
+
+model posts {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug         String      @unique
+  title        String
+  excerpt      String      @default("")
+  body         String      @default("")
+  status       post_status @default(draft)
+  published_at DateTime?   @db.Timestamptz(6)
+  created_at   DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime    @default(now()) @db.Timestamptz(6)
+
+  @@index([status, published_at], map: "posts_status_published_idx")
+}
+
+model product_assets {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id  String             @db.Uuid
+  kind        product_asset_kind
+  storage_key String
+  filename    String
+  mime_type   String?
+  size        Int?
+  alt         String?
+  width       Int?
+  height      Int?
+  position    Int                @default(0)
+  is_primary  Boolean            @default(false)
+  created_at  DateTime           @default(now()) @db.Timestamptz(6)
+  products    products           @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_assets_product_id_products_id_fk")
+
+  @@index([product_id, kind, position], map: "product_assets_product_idx")
+}
+
+model product_blocks {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id String   @db.Uuid
+  type       String
+  position   Int      @default(0)
+  data       Json     @default("{}")
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_blocks_product_id_products_id_fk")
+
+  @@unique([product_id, position], map: "product_blocks_product_position_key")
+  @@index([product_id], map: "product_blocks_product_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_comments {
+  id                                                       String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id                                               String                @db.Uuid
+  author_user_id                                           String?               @db.Uuid
+  parent_id                                                String?               @db.Uuid
+  reply_to_user_id                                         String?               @db.Uuid
+  body                                                     String
+  rating_half_steps                                        Int?
+  verified_entitlement_id                                  String?               @db.Uuid
+  state                                                    community_entry_state @default(visible)
+  creator_hearted_at                                       DateTime?             @db.Timestamptz(6)
+  creator_hearted_by_user_id                               String?               @db.Uuid
+  created_at                                               DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at                                               DateTime              @default(now()) @db.Timestamptz(6)
+  edited_at                                                DateTime?             @db.Timestamptz(6)
+  state_changed_at                                         DateTime              @default(now()) @db.Timestamptz(6)
+  comment_reactions                                        comment_reactions[]
+  comment_revisions                                        comment_revisions[]
+  users_product_comments_author_user_idTousers             users?                @relation("product_comments_author_user_idTousers", fields: [author_user_id], references: [id], onUpdate: NoAction, map: "product_comments_author_user_id_users_id_fk")
+  users_product_comments_creator_hearted_by_user_idTousers users?                @relation("product_comments_creator_hearted_by_user_idTousers", fields: [creator_hearted_by_user_id], references: [id], onUpdate: NoAction, map: "product_comments_creator_hearted_by_user_id_users_id_fk")
+  product_comments                                         product_comments?     @relation("product_commentsToproduct_comments", fields: [parent_id], references: [id], onUpdate: NoAction, map: "product_comments_parent_id_product_comments_id_fk")
+  other_product_comments                                   product_comments[]    @relation("product_commentsToproduct_comments")
+  products                                                 products              @relation(fields: [product_id], references: [id], onUpdate: NoAction, map: "product_comments_product_id_products_id_fk")
+  users_product_comments_reply_to_user_idTousers           users?                @relation("product_comments_reply_to_user_idTousers", fields: [reply_to_user_id], references: [id], onUpdate: NoAction, map: "product_comments_reply_to_user_id_users_id_fk")
+  product_entitlements                                     product_entitlements? @relation(fields: [verified_entitlement_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "product_comments_verified_entitlement_id_product_entitlements_i")
+
+  @@index([author_user_id, created_at], map: "product_comments_author_created_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_entitlements {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String             @db.Uuid
+  product_id          String             @db.Uuid
+  order_id            String?            @unique(map: "product_entitlements_order_key") @db.Uuid
+  source              entitlement_source
+  first_downloaded_at DateTime?          @db.Timestamptz(6)
+  refunded_at         DateTime?          @db.Timestamptz(6)
+  revoked_at          DateTime?          @db.Timestamptz(6)
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime           @default(now()) @db.Timestamptz(6)
+  product_comments    product_comments[]
+  orders              orders?            @relation(fields: [order_id], references: [id], onUpdate: NoAction, map: "product_entitlements_order_id_orders_id_fk")
+  products            products           @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_entitlements_product_id_products_id_fk")
+  users               users              @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_entitlements_user_id_users_id_fk")
+
+  @@index([product_id], map: "product_entitlements_product_idx")
+  @@index([user_id, product_id], map: "product_entitlements_user_product_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains an index with non-default null sort order and requires additional setup for migrations. Visit https://pris.ly/d/default-index-null-ordering for more info.
+model product_metrics_daily {
+  product_id             String   @db.Uuid
+  day                    DateTime @db.Date
+  qualified_views        Int      @default(0)
+  unique_likers          Int      @default(0)
+  unique_comment_authors Int      @default(0)
+  paid_buyers            Int      @default(0)
+  free_downloaders       Int      @default(0)
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime @default(now()) @db.Timestamptz(6)
+  products               products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_metrics_daily_product_id_products_id_fk")
+
+  @@id([product_id, day], map: "product_metrics_daily_product_day_key")
+  @@index([product_id, day(sort: Desc)], map: "product_metrics_daily_product_day_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains an index with non-default null sort order and requires additional setup for migrations. Visit https://pris.ly/d/default-index-null-ordering for more info.
+model product_rankings {
+  product_id                           String   @id @db.Uuid
+  popular_score                        Decimal  @default(0) @db.Decimal(18, 6)
+  bayesian_rating                      Decimal  @default(0) @db.Decimal(8, 4)
+  rating_count                         Int      @default(0)
+  qualified_views_30d                  Int      @default(0)
+  unique_likers_90d                    Int      @default(0)
+  unique_comment_authors_90d           Int      @default(0)
+  unique_non_refunded_paid_buyers_365d Int      @default(0)
+  unique_free_actual_downloaders_365d  Int      @default(0)
+  views_signal                         Decimal  @default(0) @db.Decimal(18, 6)
+  likes_signal                         Decimal  @default(0) @db.Decimal(18, 6)
+  comments_signal                      Decimal  @default(0) @db.Decimal(18, 6)
+  paid_buyers_signal                   Decimal  @default(0) @db.Decimal(18, 6)
+  free_downloaders_signal              Decimal  @default(0) @db.Decimal(18, 6)
+  quality_signal                       Decimal  @default(0) @db.Decimal(18, 6)
+  freshness_signal                     Decimal  @default(0) @db.Decimal(18, 6)
+  score_version                        String
+  computed_at                          DateTime @default(now()) @db.Timestamptz(6)
+  products                             products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_rankings_product_id_products_id_fk")
+
+  @@index([computed_at])
+  @@index([popular_score(sort: Desc), product_id(sort: Desc)], map: "product_rankings_popular_score_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_rating_stats {
+  product_id            String   @id @db.Uuid
+  rating_count          Int      @default(0)
+  rating_sum_half_steps Int      @default(0)
+  visible_comment_count Int      @default(0)
+  product_like_count    Int      @default(0)
+  product_dislike_count Int      @default(0)
+  updated_at            DateTime @default(now()) @db.Timestamptz(6)
+  products              products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_rating_stats_product_id_products_id_fk")
+}
+
+model product_reactions {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id String        @db.Uuid
+  user_id    String        @db.Uuid
+  kind       reaction_kind
+  created_at DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at DateTime      @default(now()) @db.Timestamptz(6)
+  products   products      @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_reactions_product_id_products_id_fk")
+  users      users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_reactions_user_id_users_id_fk")
+
+  @@unique([product_id, user_id], map: "product_reactions_product_user_key")
+  @@index([product_id, kind], map: "product_reactions_product_kind_idx")
+  @@index([user_id], map: "product_reactions_user_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_view_dedupe {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id   String   @db.Uuid
+  user_id      String?  @db.Uuid
+  visitor_hash String?
+  view_day     DateTime @db.Date
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  products     products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_view_dedupe_product_id_products_id_fk")
+  users        users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "product_view_dedupe_user_id_users_id_fk")
+
+  @@index([view_day], map: "product_view_dedupe_day_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                  String                  @unique
+  name                  String
+  kind                  product_kind
+  tagline               String
+  body                  String                  @default("")
+  version               String
+  suggested_price_cents Int                     @default(0)
+  minimum_price_cents   Int                     @default(0)
+  requires              Json                    @default("[]")
+  tags                  Json                    @default("[]")
+  source_preview        String?
+  featured              Boolean                 @default(false)
+  draft                 Boolean                 @default(true)
+  provider              payment_provider        @default(payhip)
+  payhip_product_key    String?                 @unique
+  payhip_product_secret String?
+  polar_product_id      String?
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  seo_title             String?
+  seo_description       String?
+  seller_id             String?                 @db.Uuid
+  youtube_video_id      String?
+  youtube_status        youtube_status          @default(unknown)
+  youtube_checked_at    DateTime?               @db.Timestamptz(6)
+  published_at          DateTime?               @db.Timestamptz(6)
+  licenses              licenses[]
+  orders                orders[]
+  product_assets        product_assets[]
+  product_blocks        product_blocks[]
+  product_comments      product_comments[]
+  product_entitlements  product_entitlements[]
+  product_metrics_daily product_metrics_daily[]
+  product_rankings      product_rankings?
+  product_rating_stats  product_rating_stats?
+  product_reactions     product_reactions[]
+  product_view_dedupe   product_view_dedupe[]
+  sellers               sellers?                @relation(fields: [seller_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "products_seller_id_sellers_id_fk")
+  releases              releases[]
+
+  @@index([draft, updated_at], map: "products_published_idx")
+  @@index([seller_id, draft, published_at], map: "products_seller_idx")
+  @@index([tags], map: "products_tags_gin_idx", type: Gin)
+}
+
+model releases {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id  String   @db.Uuid
+  version     String
+  released_at DateTime @db.Timestamptz(6)
+  changes     Json     @default("[]")
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  products    products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "releases_product_id_products_id_fk")
+
+  @@unique([product_id, version], map: "releases_product_version_key")
+  @@index([product_id, released_at], map: "releases_product_date_idx")
+}
+
+model seller_members {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  seller_id   String               @db.Uuid
+  user_id     String               @db.Uuid
+  member_role seller_member_role   @default(editor)
+  status      seller_member_status @default(active)
+  created_at  DateTime             @default(now()) @db.Timestamptz(6)
+  sellers     sellers              @relation(fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "seller_members_seller_id_sellers_id_fk")
+  users       users                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "seller_members_user_id_users_id_fk")
+
+  @@unique([seller_id, user_id], map: "seller_members_seller_user_key")
+  @@index([user_id], map: "seller_members_user_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model sellers {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug            String           @unique
+  name            String
+  description     String           @default("")
+  avatar_asset_id String?          @db.Uuid
+  status          seller_status    @default(active)
+  created_at      DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime         @default(now()) @db.Timestamptz(6)
+  products        products[]
+  seller_members  seller_members[]
+}
+
+model sessions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  token_hash String   @unique
+  expires_at DateTime @db.Timestamptz(6)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sessions_user_id_users_id_fk")
+
+  @@index([expires_at], map: "sessions_expires_idx")
+  @@index([user_id], map: "sessions_user_idx")
+}
+
+model staff_audit_events {
+  id                                             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_user_id                                  String             @db.Uuid
+  target_user_id                                 String             @db.Uuid
+  action                                         staff_audit_action
+  previous_role                                  staff_role?
+  next_role                                      staff_role?
+  previous_status                                staff_status?
+  next_status                                    staff_status?
+  created_at                                     DateTime           @default(now()) @db.Timestamptz(6)
+  users_staff_audit_events_actor_user_idTousers  users              @relation("staff_audit_events_actor_user_idTousers", fields: [actor_user_id], references: [id], onUpdate: NoAction, map: "staff_audit_events_actor_user_id_users_id_fk")
+  users_staff_audit_events_target_user_idTousers users              @relation("staff_audit_events_target_user_idTousers", fields: [target_user_id], references: [id], onUpdate: NoAction, map: "staff_audit_events_target_user_id_users_id_fk")
+
+  @@index([actor_user_id, created_at], map: "staff_audit_events_actor_created_idx")
+  @@index([target_user_id, created_at], map: "staff_audit_events_target_created_idx")
+}
+
+model staff_members {
+  user_id                                       String       @id @db.Uuid
+  role                                          staff_role   @default(moderator)
+  status                                        staff_status @default(active)
+  created_by_user_id                            String?      @db.Uuid
+  suspended_at                                  DateTime?    @db.Timestamptz(6)
+  last_active_at                                DateTime?    @db.Timestamptz(6)
+  created_at                                    DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at                                    DateTime     @default(now()) @db.Timestamptz(6)
+  users_staff_members_created_by_user_idTousers users?       @relation("staff_members_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction, map: "staff_members_created_by_user_id_users_id_fk")
+  users_staff_members_user_idTousers            users        @relation("staff_members_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "staff_members_user_id_users_id_fk")
+
+  @@index([created_by_user_id], map: "staff_members_created_by_idx")
+}
+
+model staff_sessions {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  token_hash   String    @unique
+  expires_at   DateTime  @db.Timestamptz(6)
+  last_seen_at DateTime? @db.Timestamptz(6)
+  revoked_at   DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  users        users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "staff_sessions_user_id_users_id_fk")
+
+  @@index([expires_at], map: "staff_sessions_expires_idx")
+  @@index([user_id], map: "staff_sessions_user_idx")
+}
+
+model users {
+  id                                                                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                               String                     @unique
+  password_hash                                                       String?
+  google_id                                                           String?                    @unique
+  display_name                                                        String?
+  created_at                                                          DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                          DateTime                   @default(now()) @db.Timestamptz(6)
+  admin_notification_reads                                            admin_notification_reads[]
+  comment_reactions                                                   comment_reactions[]
+  comment_revisions                                                   comment_revisions[]
+  licenses                                                            licenses[]
+  moderation_events                                                   moderation_events[]
+  orders                                                              orders[]
+  password_reset_tokens                                               password_reset_tokens[]
+  product_comments_product_comments_author_user_idTousers             product_comments[]         @relation("product_comments_author_user_idTousers")
+  product_comments_product_comments_creator_hearted_by_user_idTousers product_comments[]         @relation("product_comments_creator_hearted_by_user_idTousers")
+  product_comments_product_comments_reply_to_user_idTousers           product_comments[]         @relation("product_comments_reply_to_user_idTousers")
+  product_entitlements                                                product_entitlements[]
+  product_reactions                                                   product_reactions[]
+  product_view_dedupe                                                 product_view_dedupe[]
+  seller_members                                                      seller_members[]
+  sessions                                                            sessions[]
+  staff_audit_events_staff_audit_events_actor_user_idTousers          staff_audit_events[]       @relation("staff_audit_events_actor_user_idTousers")
+  staff_audit_events_staff_audit_events_target_user_idTousers         staff_audit_events[]       @relation("staff_audit_events_target_user_idTousers")
+  staff_members_staff_members_created_by_user_idTousers               staff_members[]            @relation("staff_members_created_by_user_idTousers")
+  staff_members_staff_members_user_idTousers                          staff_members?             @relation("staff_members_user_idTousers")
+  staff_sessions                                                      staff_sessions[]
+}
+
+model webhook_events {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider      String
+  event_type    String
+  external_id   String
+  signature     String?
+  payload       Json
+  processed_at  DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  processing_at DateTime? @db.Timestamptz(6)
+
+  @@unique([provider, event_type, external_id], map: "webhook_events_provider_event_key")
+  @@index([created_at], map: "webhook_events_created_idx")
+}
+
+enum admin_notification_audience {
+  owner_admin
+  all_staff
+}
+
+enum community_entry_state {
+  visible
+  hidden
+  trashed
+  author_deleted
+  purged
+}
+
+enum entitlement_source {
+  paid_purchase
+  free_download
+}
+
+enum moderation_action {
+  hide
+  trash
+  restore
+  purge
+}
+
+enum moderation_reason {
+  spam
+  harassment
+  hate_speech
+  sexual_content
+  dangerous_content
+  illegal_content
+  copyright
+  off_topic
+  personal_information
+  other
+}
+
+enum moderation_target_type {
+  comment
+  product
+}
+
+enum order_kind {
+  free
+  paid
+}
+
+enum payment_provider {
+  free
+  payhip
+  polar
+}
+
+enum post_status {
+  draft
+  published
+  archived
+}
+
+enum product_asset_kind {
+  download
+  screenshot
+  cover
+  audio
+  video
+}
+
+enum product_kind {
+  jsfx
+  script
+  theme
+  tool
+}
+
+enum reaction_kind {
+  like
+  dislike
+}
+
+enum seller_member_role {
+  owner
+  admin
+  editor
+}
+
+enum seller_member_status {
+  active
+  suspended
+}
+
+enum seller_status {
+  active
+  suspended
+  archived
+}
+
+enum staff_audit_action {
+  member_created
+  role_changed
+  status_changed
+  sessions_revoked
+}
+
+enum staff_role {
+  owner
+  admin
+  moderator
+}
+
+enum staff_status {
+  active
+  suspended
+}
+
+enum youtube_status {
+  unknown
+  available
+  unavailable
+}
+
+
+// *** WARNING ***
+// 
+// These index columns are having a non-default null sort order, which is not yet fully supported. Read more: https://pris.ly/d/non-default-index-null-ordering
+//   - Index: "product_metrics_daily_product_day_idx", column: "day"
+//   - Index: "product_rankings_popular_score_idx", column: "popular_score"
+//   - Index: "product_rankings_popular_score_idx", column: "product_id"
+// 
+// These constraints are not supported by Prisma Client, because Prisma currently does not fully support check constraints. Read more: https://pris.ly/d/check-constraints
+//   - Model: "comment_revisions", constraint: "comment_revisions_body_length_check"
+//   - Model: "comment_revisions", constraint: "comment_revisions_rating_half_steps_check"
+//   - Model: "comment_revisions", constraint: "comment_revisions_version_check"
+//   - Model: "moderation_events", constraint: "moderation_events_comment_transition_check"
+//   - Model: "moderation_events", constraint: "moderation_events_note_length_check"
+//   - Model: "moderation_events", constraint: "moderation_events_other_reason_note_check"
+//   - Model: "moderation_events", constraint: "moderation_events_purge_hash_check"
+//   - Model: "moderation_events", constraint: "moderation_events_reason_required_check"
+//   - Model: "moderation_events", constraint: "moderation_events_state_text_check"
+//   - Model: "product_comments", constraint: "product_comments_body_length_check"
+//   - Model: "product_comments", constraint: "product_comments_creator_heart_pair_check"
+//   - Model: "product_comments", constraint: "product_comments_purged_tombstone_check"
+//   - Model: "product_comments", constraint: "product_comments_rating_entitlement_check"
+//   - Model: "product_comments", constraint: "product_comments_rating_half_steps_check"
+//   - Model: "product_comments", constraint: "product_comments_rating_root_check"
+//   - Model: "product_comments", constraint: "product_comments_root_reply_target_check"
+//   - Model: "product_entitlements", constraint: "product_entitlements_free_downloaded_check"
+//   - Model: "product_metrics_daily", constraint: "product_metrics_daily_nonnegative_check"
+//   - Model: "product_rankings", constraint: "product_rankings_count_nonnegative_check"
+//   - Model: "product_rankings", constraint: "product_rankings_score_version_check"
+//   - Model: "product_rating_stats", constraint: "product_rating_stats_nonnegative_check"
+//   - Model: "product_rating_stats", constraint: "product_rating_stats_rating_sum_check"
+//   - Model: "product_view_dedupe", constraint: "product_view_dedupe_one_actor_check"
+//   - Model: "products", constraint: "products_youtube_video_id_check"
+//   - Model: "sellers", constraint: "sellers_slug_format_check"
+// 
