@@ -2,14 +2,14 @@
 
 import {
   X, Star, Download, Eye, ShoppingCart, BadgeCheck,
-  Share2, Heart, Flag, FileCode, Check, Copy, Youtube, Play
+  Share2, Heart, Flag, FileCode, Check, Copy, Youtube
 } from 'lucide-react'
 import { useAppStore, useCartStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Product } from '@/types'
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 
 /**
  * Extract YouTube video ID from various URL formats
@@ -68,16 +68,28 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const inWishlist = isInWishlist(product.id)
   const badges = getProductBadges(product)
   const [copied, setCopied] = useState(false)
-  const [hovering, setHovering] = useState(false)
   const [muted, setMuted] = useState(true)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // YouTube embed logic — auto-play if video exists
+  // YouTube embed logic — auto-play, fully chromeless (no controls ever)
   const ytVideoId = product.videoUrl ? extractYouTubeVideoId(product.videoUrl) : null
-  // No-chrome URL: controls=0 truly hides YouTube controls, zoom+crop cleans residual UI
-  const noChromeUrl = ytVideoId
-    ? `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&annotations=0&playsinline=1&disablekb=0&fs=1`
+  // Stable URL — mute=1 always in URL so iframe never reloads; toggle via postMessage
+  const embedUrl = ytVideoId
+    ? `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&annotations=0&playsinline=1&disablekb=1&fs=0`
     : null
+
+  // Toggle mute via YouTube postMessage API (no iframe reload)
+  const toggleMute = useCallback(() => {
+    const iframe = iframeRef.current
+    if (!iframe?.contentWindow) return
+    const nextMuted = !muted
+    const cmd = nextMuted ? 'mute' : 'unMute'
+    iframe.contentWindow.postMessage(
+      JSON.stringify({ event: 'command', func: cmd, args: [] }),
+      'https://www.youtube.com'
+    )
+    setMuted(nextMuted)
+  }, [muted])
 
   const initials = product.seller.name
     ?.split(' ')
@@ -109,47 +121,22 @@ export function ProductDetail({ product }: ProductDetailProps) {
             className="relative aspect-video w-full shrink-0 bg-black md:aspect-auto md:h-auto md:w-[55%]"
           >
             {ytVideoId ? (
-              // YouTube video: auto-play, no chrome by default (controls=0 + zoom/crop)
-              // On hover: remove zoom (show at 100%) and show YouTube's own controls
-              <div
-                className={`relative h-full w-full overflow-hidden transition-[border-radius] duration-300`}
-                onMouseEnter={() => setHovering(true)}
-                onMouseLeave={() => setHovering(false)}
-              >
-                {/*
-                  Zoom + crop technique:
-                  - Default (not hovering): iframe zoomed 112% to push YouTube's residual chrome
-                    (title bar, logo, gradient) outside the overflow:hidden container → cropped away
-                  - Hovering: iframe at 100% scale, YouTube controls=1 via URL swap → full controls visible
-                */}
+              // YouTube video: auto-play, fully chromeless — no YouTube UI ever shown
+              <div className="relative h-full w-full">
+                <iframe
+                  ref={iframeRef}
+                  src={embedUrl!}
+                  title={product.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  className="h-full w-full border-0"
+                />
+                {/* Minimal custom overlay: mute toggle + YouTube link (always visible) */}
                 <div
-                  className={`h-full w-full transition-transform duration-300 ${
-                    hovering ? 'scale-100' : 'scale-[1.12]'
-                  }`}
-                  style={{ transformOrigin: 'center center' }}
-                >
-                  <iframe
-                    key={`${muted ? 'muted' : 'unmuted'}-${hovering ? 'ctrl' : 'noctrl'}`}
-                    src={
-                      hovering
-                        ? `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&mute=${muted ? 1 : 0}&controls=1&rel=0&modestbranding=1&playsinline=1&fs=1`
-                        : (noChromeUrl!.replace('mute=1', `mute=${muted ? 1 : 0}`))
-                    }
-                    title={product.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="h-full w-full border-0"
-                  />
-                </div>
-                {/* Custom overlay controls — always available, more visible on hover */}
-                <div
-                  className={`absolute inset-x-0 bottom-0 flex items-center gap-3 px-4 py-3 transition-opacity duration-300 ${
-                    hovering ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                  }`}
-                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}
+                  className="absolute inset-x-0 bottom-0 flex items-center gap-3 px-4 py-3"
+                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }}
                 >
                   <button
-                    onClick={() => setMuted(!muted)}
+                    onClick={toggleMute}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"
                   >
                     {muted ? (
