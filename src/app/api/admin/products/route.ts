@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { db } from '@/lib/db'
+import { notifyProductApproved, notifyProductRejected } from '@/lib/notifications'
 
 // GET /api/admin/products - All products (with review status filter)
 export async function GET(req: NextRequest) {
@@ -77,6 +78,13 @@ export async function PUT(req: NextRequest) {
       data,
       include: { seller: { select: { id: true, name: true, email: true } } },
     })
+
+    // Notify seller about product review decision
+    if (reviewStatus === 'APPROVED') {
+      await notifyProductApproved(product.sellerId, product.title)
+    } else if (reviewStatus === 'REJECTED') {
+      await notifyProductRejected(product.sellerId, product.title, reviewNote || undefined)
+    }
 
     return NextResponse.json(product)
   } catch (error: any) {

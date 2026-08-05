@@ -2,7 +2,7 @@
 
 import { Search, Menu, Video, Bell, ShoppingCart, Upload, User, Share2, LogOut, Settings, Package, ChevronDown, Shield, Store } from 'lucide-react'
 import { useSession, signOut } from 'next-auth/react'
-import { useAppStore, useCartStore } from '@/stores'
+import { useAppStore, useCartStore, useNotificationStore } from '@/stores'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +24,7 @@ export function Navbar() {
     setLoginModalOpen, setActiveCategory, setSellerApplyModalOpen,
   } = useAppStore()
   const totalItems = useCartStore((s) => s.totalItems())
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
   const [localSearch, setLocalSearch] = useState(searchQuery)
   const { data: session, status } = useSession()
   const [imageError, setImageError] = useState(false)
@@ -130,7 +131,11 @@ export function Navbar() {
           onClick={() => setNotificationOpen(!notificationOpen)}
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#3ea6ff]" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#f5a623] px-1 text-[9px] font-bold text-black">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </Button>
         <Button
           variant="ghost"

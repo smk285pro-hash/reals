@@ -27,6 +27,7 @@ model User {
   accounts             Account[]
   sessions             Session[]
   sellerApplication    SellerApplication?
+  notifications        Notification[]
 }
 
 model Account {
@@ -146,4 +147,16 @@ model SellerApplication {
   reviewedAt      DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String   // Who receives this notification
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   // SELLER_APPROVED, SELLER_REJECTED, PRODUCT_APPROVED, PRODUCT_REJECTED, NEW_SALE, NEW_REVIEW, SYSTEM
+  title      String   // Short title
+  message    String   // Detail message
+  link       String?  // Optional URL to navigate to when clicked
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
 }

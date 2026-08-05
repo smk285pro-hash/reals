@@ -187,3 +187,16 @@ export const useAppStore = create<AppStore>()((set) => ({
   setSellerApplyModalOpen: (open) => set({ sellerApplyModalOpen: open }),
   setSortBy: (s) => set({ sortBy: s }),
 }))
+
+// ==================== NOTIFICATION STORE ====================
+interface NotificationStore {
+  unreadCount: number
+  setUnreadCount: (count: number) => void
+  decrementUnread: () => void
+}
+
+export const useNotificationStore = create<NotificationStore>()((set) => ({
+  unreadCount: 0,
+  setUnreadCount: (count) => set({ unreadCount: count }),
+  decrementUnread: () => set((s) => ({ unreadCount: Math.max(0, s.unreadCount - 1) })),
+}))

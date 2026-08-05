@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { db } from '@/lib/db'
+import { notifySellerApproved, notifySellerRejected } from '@/lib/notifications'
 import { NextResponse } from 'next/server'
 
 // GET /api/admin/applications — List seller applications
@@ -116,6 +117,11 @@ export async function PUT(req: Request) {
           name: application.displayName, // Use their chosen shop name
         },
       })
+      // Notify user that their seller application was approved
+      await notifySellerApproved(application.userId, application.displayName)
+    } else {
+      // Notify user that their seller application was rejected
+      await notifySellerRejected(application.userId, application.displayName, adminNote?.trim() || undefined)
     }
 
     return NextResponse.json({
