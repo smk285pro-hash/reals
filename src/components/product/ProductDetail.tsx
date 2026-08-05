@@ -2,14 +2,17 @@
 
 import {
   X, Star, Download, Eye, ShoppingCart, BadgeCheck,
-  Share2, Heart, Flag, FileCode, Check, Copy, Youtube
+  Share2, Heart, Flag, FileCode, Check, Copy, Youtube,
+  Loader2, Lock
 } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { useAppStore, useCartStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { toast } from 'sonner'
 import type { Product } from '@/types'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 /**
  * Extract YouTube video ID from various URL formats
@@ -61,15 +64,93 @@ interface ProductDetailProps {
 }
 
 export function ProductDetail({ product }: ProductDetailProps) {
-  const { setDetailProductId } = useAppStore()
+  const { setDetailProductId, setLoginModalOpen, setCartDrawerOpen } = useAppStore()
   const { addItem, isInCart } = useCartStore()
   const { isInWishlist, toggleItem } = useWishlistStore()
+  const { data: session } = useSession()
   const inCart = isInCart(product.id)
   const inWishlist = isInWishlist(product.id)
   const badges = getProductBadges(product)
   const [copied, setCopied] = useState(false)
   const [muted, setMuted] = useState(true)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  // Ownership state — does the current user own this product?
+  const [ownsProduct, setOwnsProduct] = useState(false)
+  const [checkingOwnership, setCheckingOwnership] = useState(true)
+  const [downloading, setDownloading] = useState(false)
+
+  useEffect(() => {
+    if (!session?.user) {
+      setOwnsProduct(false)
+      setCheckingOwnership(false)
+      return
+    }
+    setCheckingOwnership(true)
+    fetch('/api/purchases')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.ownedProductIds?.includes(product.id)) {
+          setOwnsProduct(true)
+        } else {
+          setOwnsProduct(false)
+        }
+      })
+      .catch(() => setOwnsProduct(false))
+      .finally(() => setCheckingOwnership(false))
+  }, [session, product.id])
+
+  // Download handler — redirects to /api/products/[id]/download which streams the file
+  const handleDownload = useCallback(async () => {
+    if (!session?.user) {
+      toast.info('Vui lòng đăng nhập để tải file')
+      setLoginModalOpen(true)
+      return
+    }
+    setDownloading(true)
+    try {
+      const res = await fetch(`/api/products/${product.id}/download`)
+      if (res.status === 401) {
+        toast.info('Vui lòng đăng nhập để tải file')
+        setLoginModalOpen(true)
+        return
+      }
+      if (res.status === 403) {
+        const data = await res.json().catch(() => ({}))
+        if (data?.needPurchase) {
+          toast.error('Bạn cần mua sản phẩm trước khi tải')
+          setCartDrawerOpen(true)
+        } else {
+          toast.error(data?.error || 'Không có quyền tải file')
+        }
+        return
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data?.error || 'Lỗi tải file')
+        return
+      }
+      // Convert to blob and trigger download
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      // Try to extract filename from Content-Disposition
+      const cd = res.headers.get('Content-Disposition') || ''
+      const match = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="([^"]+)"/i)
+      a.download = match ? decodeURIComponent(match[1]) : `${product.title}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Đã tải file về')
+    } catch (e) {
+      console.error('[download] error:', e)
+      toast.error('Lỗi kết nối server')
+    } finally {
+      setDownloading(false)
+    }
+  }, [session, product.id, setLoginModalOpen, setCartDrawerOpen, product.title])
 
   // YouTube embed logic — auto-play, fully chromeless (no controls ever)
   const ytVideoId = product.videoUrl ? extractYouTubeVideoId(product.videoUrl) : null
@@ -274,11 +355,35 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 </div>
 
                 {product.isFree ? (
-                  <Button className="w-full gap-2 rounded-lg bg-[#3fb950] py-3 text-sm font-semibold text-black hover:bg-[#2ea043]">
-                    <Download className="h-4 w-4" />
-                    Tải miễn phí
+                  /* FREE product — login required to download */
+                  <Button
+                    className="w-full gap-2 rounded-lg bg-[#3fb950] py-3 text-sm font-semibold text-black hover:bg-[#2ea043]"
+                    onClick={handleDownload}
+                    disabled={downloading || checkingOwnership}
+                  >
+                    {downloading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {downloading ? 'Đang tải...' : 'Tải miễn phí'}
+                  </Button>
+                ) : ownsProduct ? (
+                  /* PAID product — already purchased → show Download button */
+                  <Button
+                    className="w-full gap-2 rounded-lg bg-[#3fb950] py-3 text-sm font-semibold text-black hover:bg-[#2ea043]"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                  >
+                    {downloading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {downloading ? 'Đang tải...' : 'Tải xuống (đã mua)'}
                   </Button>
                 ) : (
+                  /* PAID product — not purchased yet → Add to cart */
                   <Button
                     className={`w-full gap-2 rounded-lg py-3 text-sm font-semibold ${
                       inCart
@@ -286,12 +391,38 @@ export function ProductDetail({ product }: ProductDetailProps) {
                         : 'bg-[#f5a623] text-black hover:bg-[#e09515]'
                     }`}
                     onClick={() => {
-                      if (!inCart) addItem(product)
+                      if (!inCart) {
+                        addItem(product)
+                        toast.success('Đã thêm vào giỏ hàng')
+                      }
                     }}
                   >
-                    <ShoppingCart className="h-4 w-4" />
+                    {inCart ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4" />
+                    )}
                     {inCart ? 'Đã thêm vào giỏ ✓' : 'Thêm vào giỏ hàng'}
                   </Button>
+                )}
+
+                {/* Sub-status hint */}
+                {!product.isFree && ownsProduct && (
+                  <p className="text-center text-xs text-[#3fb950]">
+                    ✓ Bạn đã sở hữu sản phẩm này — tải không giới hạn
+                  </p>
+                )}
+                {!product.isFree && !ownsProduct && session?.user && (
+                  <p className="flex items-center justify-center gap-1.5 text-center text-xs text-[#888]">
+                    <Lock className="h-3 w-3" />
+                    Mua để mở khóa file tải về — tải lại bất cứ lúc nào sau khi mua
+                  </p>
+                )}
+                {product.isFree && !session?.user && (
+                  <p className="flex items-center justify-center gap-1.5 text-center text-xs text-[#888]">
+                    <Lock className="h-3 w-3" />
+                    Đăng nhập để tải file miễn phí
+                  </p>
                 )}
               </div>
 

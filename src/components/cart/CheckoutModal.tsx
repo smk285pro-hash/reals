@@ -1,27 +1,68 @@
 'use client'
 
-import { X, CreditCard, Lock, CheckCircle } from 'lucide-react'
+import { X, CreditCard, Lock, CheckCircle, Loader2 } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { useCartStore, useAppStore } from '@/stores'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { toast } from 'sonner'
 import { useState } from 'react'
 
 export function CheckoutModal() {
-  const { checkoutOpen, setCheckoutOpen } = useAppStore()
+  const { checkoutOpen, setCheckoutOpen, setLoginModalOpen } = useAppStore()
   const { items, totalPrice, clearCart } = useCartStore()
+  const { data: session } = useSession()
   const [step, setStep] = useState<'info' | 'payment' | 'success'>('info')
+  const [completing, setCompleting] = useState(false)
 
   if (!checkoutOpen) return null
 
   const handleClose = () => {
+    if (completing) return
     setCheckoutOpen(false)
     setStep('info')
   }
 
-  const handleComplete = () => {
-    clearCart()
-    setStep('success')
+  const handleComplete = async () => {
+    // Require login before checkout — without a user record we can't save Purchase rows
+    if (!session?.user) {
+      toast.info('Vui lòng đăng nhập để hoàn tất thanh toán')
+      setCheckoutOpen(false)
+      setLoginModalOpen(true)
+      return
+    }
+
+    setCompleting(true)
+    try {
+      const res = await fetch('/api/checkout/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            productId: i.product.id,
+            price: i.product.price,
+            isFree: i.product.isFree,
+          })),
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err?.error || 'Lỗi xử lý thanh toán')
+        return
+      }
+      const data = await res.json()
+      clearCart()
+      setStep('success')
+      if (data.purchased?.length > 0) {
+        toast.success(`Đã mua thành công ${data.purchased.length} sản phẩm`)
+      }
+    } catch (e) {
+      console.error('[checkout/complete] error:', e)
+      toast.error('Lỗi kết nối server')
+    } finally {
+      setCompleting(false)
+    }
   }
 
   return (
@@ -165,15 +206,21 @@ export function CheckoutModal() {
                         variant="ghost"
                         className="flex-1 text-[#aaa] hover:bg-[#272727] hover:text-white"
                         onClick={() => setStep('info')}
+                        disabled={completing}
                       >
                         Quay lại
                       </Button>
                       <Button
                         className="flex-1 gap-2 rounded-lg bg-[#f5a623] text-black hover:bg-[#e09515]"
                         onClick={handleComplete}
+                        disabled={completing}
                       >
-                        <Lock className="h-4 w-4" />
-                        Xác nhận
+                        {completing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Lock className="h-4 w-4" />
+                        )}
+                        {completing ? 'Đang xử lý...' : 'Xác nhận'}
                       </Button>
                     </div>
                   </div>

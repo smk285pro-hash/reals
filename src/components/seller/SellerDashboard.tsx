@@ -311,6 +311,8 @@ export function SellerDashboard() {
       setYtThumbnails([])
       setYtVideoId(null)
     }
+    // Load downloadable files attached to this product
+    fetchProductFiles(product.id)
     setShowForm(true)
   }
 
@@ -320,6 +322,8 @@ export function SellerDashboard() {
     setForm(emptyForm)
     setYtThumbnails([])
     setYtVideoId(null)
+    setProductFiles([])
+    setFileVersion('')
     setShowForm(true)
   }
 
@@ -382,6 +386,20 @@ export function SellerDashboard() {
   const [ytVideoId, setYtVideoId] = useState<string | null>(null)
   const [uploadLoading, setUploadLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Downloadable file state
+  interface ProductFileMeta {
+    id: string
+    fileName: string
+    fileSize: number
+    fileType: string
+    version: string | null
+    createdAt: string
+  }
+  const [productFiles, setProductFiles] = useState<ProductFileMeta[]>([])
+  const [fileUploading, setFileUploading] = useState(false)
+  const [fileVersion, setFileVersion] = useState('')
+  const productFileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch YouTube thumbnails when videoUrl changes
   const fetchYoutubeThumbnails = async (url: string) => {
@@ -456,6 +474,83 @@ export function SellerDashboard() {
       setUploadLoading(false)
       // Reset file input
       if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  // Format bytes → human-readable
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+  }
+
+  // Fetch downloadable files attached to a product (after edit modal opens)
+  const fetchProductFiles = async (productId: string) => {
+    try {
+      const res = await fetch(`/api/products/${productId}/file`)
+      if (res.ok) {
+        const data = await res.json()
+        setProductFiles(data.files || [])
+      } else {
+        setProductFiles([])
+      }
+    } catch {
+      setProductFiles([])
+    }
+  }
+
+  // Upload a downloadable file (zip/lua/jsfx/...)
+  const handleProductFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!editingId) {
+      toast.error('Vui lòng lưu sản phẩm trước khi upload file')
+      return
+    }
+
+    setFileUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (fileVersion.trim()) formData.append('version', fileVersion.trim())
+
+      const res = await fetch(`/api/seller/upload-file?productId=${editingId}`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setProductFiles((prev) => [data.file, ...prev])
+        setFileVersion('')
+        toast.success(`Đã upload "${file.name}"`)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Lỗi upload file')
+      }
+    } catch {
+      toast.error('Lỗi kết nối server')
+    } finally {
+      setFileUploading(false)
+      if (productFileInputRef.current) productFileInputRef.current.value = ''
+    }
+  }
+
+  // Delete a downloadable file
+  const handleProductFileDelete = async (fileId: string, fileName: string) => {
+    if (!editingId) return
+    if (!confirm(`Xóa file "${fileName}"? Hành động không thể hoàn tác.`)) return
+    try {
+      const res = await fetch(`/api/products/${editingId}/file?fileId=${fileId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setProductFiles((prev) => prev.filter((f) => f.id !== fileId))
+        toast.success(`Đã xóa "${fileName}"`)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Lỗi xóa file')
+      }
+    } catch {
+      toast.error('Lỗi kết nối server')
     }
   }
 
@@ -836,7 +931,7 @@ export function SellerDashboard() {
 
                 <Separator className="bg-[#303030]" />
 
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <Button
                     variant="ghost"
                     className="flex-1 text-[#aaa] hover:bg-[#272727] hover:text-white"
@@ -852,6 +947,99 @@ export function SellerDashboard() {
                     <Save className="h-4 w-4" />
                     {saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Đăng sản phẩm'}
                   </Button>
+                </div>
+
+                {/* ============ Downloadable File Section ============ */}
+                <Separator className="bg-[#303030]" />
+                <div className="rounded-xl border border-[#303030] bg-[#0f0f0f] p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-[#f5a623]" />
+                    <h3 className="text-sm font-semibold text-white">File tải về</h3>
+                    {productFiles.length > 0 && (
+                      <Badge className="bg-[#f5a623]/20 text-[#f5a623]">{productFiles.length}</Badge>
+                    )}
+                  </div>
+
+                  {!editingId ? (
+                    <p className="text-xs text-[#888]">
+                      💡 Lưu sản phẩm trước, sau đó upload file để buyer tải về.
+                    </p>
+                  ) : (
+                    <>
+                      {/* Upload row */}
+                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Input
+                          value={fileVersion}
+                          onChange={(e) => setFileVersion(e.target.value)}
+                          placeholder="Phiên bản (VD: 1.0.0) — tùy chọn"
+                          className="flex-1 border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
+                        />
+                        <input
+                          ref={productFileInputRef}
+                          type="file"
+                          accept=".zip,.rar,.7z,.lua,.eel,.jsfx,.py,.reaperconfigzip,.reaperconfig,.rpl,.txt,.md,.pdf"
+                          onChange={handleProductFileUpload}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          className="shrink-0 gap-2 bg-[#3ea6ff] text-white hover:bg-[#3ea6ff]/80"
+                          onClick={() => productFileInputRef.current?.click()}
+                          disabled={fileUploading}
+                        >
+                          {fileUploading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4" />
+                          )}
+                          {fileUploading ? 'Đang upload...' : 'Upload file'}
+                        </Button>
+                      </div>
+
+                      {/* File list */}
+                      {productFiles.length === 0 ? (
+                        <p className="text-xs text-[#666]">Chưa có file nào. Buyer sẽ không thể tải về cho đến khi bạn upload ít nhất 1 file.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {productFiles.map((f) => (
+                            <div
+                              key={f.id}
+                              className="flex items-center gap-3 rounded-lg border border-[#303030] bg-[#1a1a1a] p-3"
+                            >
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f5a623]/20 text-[#f5a623]">
+                                <Package className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate text-sm font-medium text-[#f1f1f1]">{f.fileName}</span>
+                                  {f.version && (
+                                    <Badge variant="outline" className="border-[#303030] text-[#888]">v{f.version}</Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-[#888]">
+                                  {formatFileSize(f.fileSize)} • {f.fileType.toUpperCase()} • {new Date(f.createdAt).toLocaleDateString('vi-VN')}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 shrink-0 text-red-400 hover:bg-red-400/10"
+                                onClick={() => handleProductFileDelete(f.id, f.fileName)}
+                                title="Xóa file"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <p className="mt-3 text-[10px] text-[#666]">
+                        Hỗ trợ: .zip, .rar, .7z, .lua, .eel, .jsfx, .py, .reaperconfigzip, .txt, .md, .pdf — tối đa 500MB
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

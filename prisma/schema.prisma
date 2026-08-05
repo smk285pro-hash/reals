@@ -28,6 +28,7 @@ model User {
   sessions             Session[]
   sellerApplication    SellerApplication?
   notifications        Notification[]
+  purchases            Purchase[]
 }
 
 model Account {
@@ -98,6 +99,37 @@ model Product {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   reviews      Review[]
+  files        ProductFile[]
+  purchases    Purchase[]
+}
+
+model ProductFile {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  fileName  String   // Original name at upload time: "TapeDrift_v1.2.zip"
+  filePath  String   // Storage key/path: "files/abc123.zip"
+  fileSize  Int      // bytes
+  fileType  String   // extension: "zip" | "lua" | "jsfx" | "py" | "ReaperConfigZip"
+  version   String?  // semantic version: "1.2.0"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
+model Purchase {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  price     Float    // Snapshot of price at purchase time
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId]) // 1 user buys 1 product once (re-download freely)
+  @@index([userId])
+  @@index([productId])
 }
 
 model Review {
