@@ -2,7 +2,7 @@
 
 import {
   X, Star, Download, Eye, ShoppingCart, BadgeCheck,
-  Share2, Heart, Flag, FileCode, Check, Copy
+  Share2, Heart, Flag, FileCode, Check, Copy, Youtube, Play
 } from 'lucide-react'
 import { useAppStore, useCartStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,36 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Product } from '@/types'
 import { useState } from 'react'
+
+/**
+ * Extract YouTube video ID from various URL formats
+ */
+function extractYouTubeVideoId(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname.includes('youtube.com') && parsed.pathname === '/watch') {
+      return parsed.searchParams.get('v')
+    }
+    if (parsed.hostname === 'youtu.be') {
+      return parsed.pathname.slice(1).split('/')[0] || null
+    }
+    if (parsed.pathname.startsWith('/embed/')) {
+      return parsed.pathname.split('/')[2] || null
+    }
+    if (parsed.pathname.startsWith('/shorts/')) {
+      return parsed.pathname.split('/')[2] || null
+    }
+    if (parsed.hostname === 'm.youtube.com' && parsed.pathname === '/watch') {
+      return parsed.searchParams.get('v')
+    }
+    return null
+  } catch {
+    const match = url.match(
+      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|shorts\/|watch\?v=))([a-zA-Z0-9_-]{11})/
+    )
+    return match ? match[1] : null
+  }
+}
 
 function formatViews(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
@@ -38,6 +68,11 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const inWishlist = isInWishlist(product.id)
   const badges = getProductBadges(product)
   const [copied, setCopied] = useState(false)
+  const [playing, setPlaying] = useState(false)
+
+  // YouTube embed logic
+  const ytVideoId = product.videoUrl ? extractYouTubeVideoId(product.videoUrl) : null
+  const embedUrl = ytVideoId ? `https://www.youtube.com/embed/${ytVideoId}?autoplay=1&rel=0` : null
 
   const initials = product.seller.name
     ?.split(' ')
@@ -66,19 +101,50 @@ export function ProductDetail({ product }: ProductDetailProps) {
         <div className="flex max-h-[90vh] w-full max-w-[900px] flex-col overflow-hidden rounded-2xl border border-[#303030] bg-[#0f0f0f] shadow-2xl md:flex-row">
           {/* Left - Video/Image */}
           <div className="relative aspect-video w-full shrink-0 bg-black md:aspect-auto md:h-auto md:w-[55%]">
-            <img
-              src={product.thumbnail}
-              alt={product.title}
-              className="h-full w-full object-cover"
-            />
+            {playing && embedUrl ? (
+              // YouTube iframe player
+              <iframe
+                src={embedUrl}
+                title={product.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full"
+              />
+            ) : (
+              // Thumbnail with play button overlay (if YouTube video available)
+              <>
+                <img
+                  src={product.thumbnail}
+                  alt={product.title}
+                  className="h-full w-full object-cover"
+                />
+                {ytVideoId && (
+                  <button
+                    onClick={() => setPlaying(true)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 shadow-lg transition-transform hover:scale-110">
+                      <Play className="h-6 w-6 fill-white text-white ml-0.5" />
+                    </div>
+                  </button>
+                )}
+              </>
+            )}
             {product.duration && (
               <div className="absolute bottom-3 right-3 rounded bg-black/80 px-2 py-1 text-sm font-medium text-white">
                 {product.duration}
               </div>
             )}
+            {/* YouTube badge */}
+            {ytVideoId && !playing && (
+              <div className="absolute left-3 top-3 flex items-center gap-1 rounded bg-red-600 px-2 py-1 text-xs font-bold text-white">
+                <Youtube className="h-3.5 w-3.5" />
+                YouTube
+              </div>
+            )}
             {/* Badges overlay */}
             {badges.length > 0 && (
-              <div className="absolute left-3 top-3 flex gap-1">
+              <div className={`absolute ${ytVideoId && !playing ? 'left-3 top-10' : 'left-3 top-3'} flex gap-1`}>
                 {badges.map((b) => (
                   <span key={b.label} className={`rounded px-2 py-1 text-xs font-bold ${b.color}`}>
                     {b.label}

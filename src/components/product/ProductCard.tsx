@@ -1,6 +1,6 @@
 'use client'
 
-import { BadgeCheck, Star, Eye, Heart } from 'lucide-react'
+import { BadgeCheck, Star, Eye, Heart, Play } from 'lucide-react'
 import type { Product } from '@/types'
 import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { HoverPreview } from './HoverPreview'
@@ -86,6 +86,14 @@ export function ProductCard({ product }: ProductCardProps) {
                   {b.label}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* YouTube video indicator - top-left if no badges overlap */}
+          {product.videoUrl && (
+            <div className={`absolute ${badges.length > 0 ? 'right-2 top-8' : 'right-2 top-2'} flex items-center gap-1 rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-bold text-white`}>
+              <Play className="h-2.5 w-2.5 fill-white" />
+              Video
             </div>
           )}
 

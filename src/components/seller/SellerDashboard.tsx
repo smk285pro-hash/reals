@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, Search,
-  Package, ArrowLeft, Save, X, LogIn, RefreshCw, AlertCircle, Store
+  Package, ArrowLeft, Save, X, LogIn, RefreshCw, AlertCircle, Store,
+  Youtube, Upload, ImagePlus, Loader2, Link2, CheckCircle2
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,7 @@ interface ProductFormData {
   format: string
   categorySlug: string
   thumbnail: string
+  videoUrl: string
   duration: string
   tags: string
   featured: boolean
@@ -40,6 +42,7 @@ const emptyForm: ProductFormData = {
   format: 'JSFX',
   categorySlug: 'effects',
   thumbnail: '',
+  videoUrl: '',
   duration: '',
   tags: '',
   featured: false,
@@ -295,11 +298,19 @@ export function SellerDashboard() {
       format: product.format,
       categorySlug: product.categorySlug,
       thumbnail: product.thumbnail,
+      videoUrl: product.videoUrl || '',
       duration: product.duration || '',
       tags: product.tags,
       featured: product.featured,
       published: product.published,
     })
+    // If product has a YouTube URL, auto-fetch thumbnails
+    if (product.videoUrl) {
+      fetchYoutubeThumbnails(product.videoUrl)
+    } else {
+      setYtThumbnails([])
+      setYtVideoId(null)
+    }
     setShowForm(true)
   }
 
@@ -307,6 +318,8 @@ export function SellerDashboard() {
   const openCreate = () => {
     setEditingId(null)
     setForm(emptyForm)
+    setYtThumbnails([])
+    setYtVideoId(null)
     setShowForm(true)
   }
 
@@ -371,6 +384,89 @@ export function SellerDashboard() {
     'https://images.unsplash.com/photo-1584900501285-24ab11a14c6c?w=640&h=360&fit=crop',
     'https://images.unsplash.com/photo-1493225452364-bab4a9fcd274?w=640&h=360&fit=crop',
   ]
+
+  // YouTube thumbnail fetching state
+  const [ytThumbnails, setYtThumbnails] = useState<{ quality: string; label: string; url: string }[]>([])
+  const [ytLoading, setYtLoading] = useState(false)
+  const [ytVideoId, setYtVideoId] = useState<string | null>(null)
+  const [uploadLoading, setUploadLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch YouTube thumbnails when videoUrl changes
+  const fetchYoutubeThumbnails = async (url: string) => {
+    if (!url.trim()) {
+      setYtThumbnails([])
+      setYtVideoId(null)
+      return
+    }
+    setYtLoading(true)
+    try {
+      const res = await fetch(`/api/youtube/thumbnails?url=${encodeURIComponent(url.trim())}`)
+      if (res.ok) {
+        const data = await res.json()
+        setYtThumbnails(data.thumbnails || [])
+        setYtVideoId(data.videoId || null)
+        // Auto-set the best quality thumbnail as the product thumbnail
+        if (data.thumbnails?.length > 0 && !form.thumbnail) {
+          setForm(f => ({ ...f, thumbnail: data.thumbnails[0].url }))
+        }
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Không thể lấy thumbnail YouTube')
+        setYtThumbnails([])
+        setYtVideoId(null)
+      }
+    } catch {
+      toast.error('Lỗi kết nối server')
+      setYtThumbnails([])
+      setYtVideoId(null)
+    } finally {
+      setYtLoading(false)
+    }
+  }
+
+  // Handle custom thumbnail file upload
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Chỉ chấp nhận file ảnh (JPG, PNG, WebP, GIF)')
+      return
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File quá lớn, tối đa 5MB')
+      return
+    }
+
+    setUploadLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setForm(f => ({ ...f, thumbnail: data.url }))
+        toast.success('Đã upload thumbnail thành công')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Lỗi upload file')
+      }
+    } catch {
+      toast.error('Lỗi kết nối server')
+    } finally {
+      setUploadLoading(false)
+      // Reset file input
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   const statusFilterOptions: { value: StatusFilter; label: string; count: number }[] = [
     { value: 'ALL', label: 'Tất cả', count: products.length },
@@ -578,30 +674,137 @@ export function SellerDashboard() {
                   </div>
                 </div>
 
+                {/* YouTube Video URL */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-[#ccc]">Thumbnail URL</label>
-                  <Input
-                    value={form.thumbnail}
-                    onChange={(e) => setForm({ ...form, thumbnail: e.target.value })}
-                    placeholder="https://..."
-                    className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
-                  />
-                  <div className="mt-2 flex gap-2 overflow-x-auto">
-                    {thumbnailPresets.map((url, i) => (
-                      <button
-                        key={i}
-                        className={`h-12 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${form.thumbnail === url ? 'border-[#f5a623]' : 'border-transparent'}`}
-                        onClick={() => setForm({ ...form, thumbnail: url })}
-                      >
-                        <img src={url} alt="" className="h-full w-full object-cover" />
-                      </button>
-                    ))}
+                  <label className="mb-1 flex items-center gap-2 text-sm font-medium text-[#ccc]">
+                    <Youtube className="h-4 w-4 text-red-500" />
+                    Link YouTube Video
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.videoUrl}
+                      onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
+                      placeholder="https://www.youtube.com/watch?v=... hoặc https://youtu.be/..."
+                      className="flex-1 border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0 gap-2 border-[#303030] bg-[#1a1a1a] text-red-400 hover:bg-[#272727] hover:text-red-300"
+                      onClick={() => fetchYoutubeThumbnails(form.videoUrl)}
+                      disabled={ytLoading || !form.videoUrl.trim()}
+                    >
+                      {ytLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                      <span className="hidden sm:inline">{ytLoading ? 'Đang lấy...' : 'Lấy thumbnail'}</span>
+                    </Button>
                   </div>
-                  {form.thumbnail && (
-                    <div className="mt-2 aspect-video w-full max-w-[300px] overflow-hidden rounded-lg bg-[#333]">
-                      <img src={form.thumbnail} alt="Preview" className="h-full w-full object-cover" />
+                  {ytVideoId && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-emerald-400">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Video ID: {ytVideoId}
                     </div>
                   )}
+                </div>
+
+                {/* Thumbnail */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-[#ccc]">Thumbnail</label>
+                  <div className="space-y-3">
+                    {/* Upload or URL input */}
+                    <div className="flex gap-2">
+                      <Input
+                        value={form.thumbnail}
+                        onChange={(e) => setForm({ ...form, thumbnail: e.target.value })}
+                        placeholder="URL thumbnail hoặc upload file bên dưới"
+                        className="flex-1 border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="shrink-0 gap-2 border-[#303030] bg-[#1a1a1a] text-[#3ea6ff] hover:bg-[#272727] hover:text-[#3ea6ff]"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadLoading}
+                      >
+                        {uploadLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        <span className="hidden sm:inline">{uploadLoading ? 'Đang upload...' : 'Upload'}</span>
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        onChange={handleThumbnailUpload}
+                        className="hidden"
+                      />
+                    </div>
+
+                    {/* YouTube thumbnails (auto-suggested) */}
+                    {ytThumbnails.length > 0 && (
+                      <div>
+                        <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-red-400">
+                          <Youtube className="h-3.5 w-3.5" />
+                          Thumbnail từ YouTube — chọn 1 ảnh:
+                        </p>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {ytThumbnails.map((thumb, i) => (
+                            <button
+                              key={i}
+                              className={`group relative h-20 w-[120px] shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+                                form.thumbnail === thumb.url
+                                  ? 'border-red-500 ring-1 ring-red-500/50'
+                                  : 'border-[#303030] hover:border-red-400'
+                              }`}
+                              onClick={() => setForm({ ...form, thumbnail: thumb.url })}
+                            >
+                              <img src={thumb.url} alt={thumb.label} className="h-full w-full object-cover" />
+                              <div className="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-center text-[9px] text-white">
+                                {thumb.label}
+                              </div>
+                              {form.thumbnail === thumb.url && (
+                                <div className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500">
+                                  <CheckCircle2 className="h-3 w-3 text-white" />
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Preset thumbnails (Unsplash) */}
+                    <div>
+                      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[#888]">
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        Hoặc chọn ảnh mẫu:
+                      </p>
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {thumbnailPresets.map((url, i) => (
+                          <button
+                            key={i}
+                            className={`h-12 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+                              form.thumbnail === url ? 'border-[#f5a623]' : 'border-transparent hover:border-[#555]'
+                            }`}
+                            onClick={() => setForm({ ...form, thumbnail: url })}
+                          >
+                            <img src={url} alt="" className="h-full w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Preview */}
+                    {form.thumbnail && (
+                      <div className="mt-1 aspect-video w-full max-w-[360px] overflow-hidden rounded-lg bg-[#333]">
+                        <img
+                          src={form.thumbnail}
+                          alt="Preview"
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = thumbnailPresets[0]
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex gap-4">
