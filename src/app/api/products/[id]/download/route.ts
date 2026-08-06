@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { db } from '@/lib/db'
-import { getLocalFilePath } from '@/lib/fileStorage'
-import { readFile as fsReadFile } from 'fs/promises'
+import { createDownloadUrl } from '@/lib/fileStorage'
 
 /**
  * GET /api/products/[id]/download
@@ -15,7 +14,11 @@ import { readFile as fsReadFile } from 'fs/promises'
  *  - If product is FREE: any logged-in user can download
  *  - If product is PAID: user must have a Purchase record
  *
- * Returns the raw file as a streaming download (Content-Disposition: attachment).
+ * Returns a 307 redirect to a short-lived presigned R2 URL. The redirect is the
+ * only way the object leaves storage — the bucket is private, and the URL
+ * expires in 15 minutes, so a link cannot be usefully shared. Redirecting also
+ * sidesteps Vercel's ~4.5MB function response cap, which a 500MB plugin would
+ * otherwise hit.
  */
 export async function GET(
   _req: NextRequest,
@@ -87,21 +90,6 @@ export async function GET(
       )
     }
 
-    // Resolve absolute path & verify file exists
-    let absPath: string
-    try {
-      absPath = getLocalFilePath(file.filePath)
-      await fsReadFile(absPath) // throws ENOENT if missing
-    } catch (err: any) {
-      if (err?.code === 'ENOENT') {
-        return NextResponse.json(
-          { error: 'File không tồn tại trên storage. Vui lòng liên hệ admin.' },
-          { status: 404 }
-        )
-      }
-      throw err
-    }
-
     // Build a safe filename for the download header
     const safeTitle = product.title
       .replace(/[^\p{L}\p{N}\s_-]/gu, '')
@@ -109,33 +97,19 @@ export async function GET(
       .slice(0, 60) || 'product'
     const downloadName = `${safeTitle}${file.version ? `_v${file.version}` : ''}.${file.fileType}`
 
-    // Stream the file from disk to client (avoids loading large files into memory).
-    // We use Node's createReadStream wrapped into a ReadableStream so NextResponse
-    // can pipe it directly.
-    const { createReadStream } = await import('node:fs')
-    const nodeStream = createReadStream(absPath)
-
-    const webStream = new ReadableStream({
-      start(controller) {
-        nodeStream.on('data', (chunk: Buffer) => {
-          controller.enqueue(new Uint8Array(chunk))
-        })
-        nodeStream.on('end', () => controller.close())
-        nodeStream.on('error', (err) => controller.error(err))
-      },
-      cancel() {
-        nodeStream.destroy()
-      },
+    // Mint a short-lived presigned URL and hand the transfer to R2. The grant
+    // was verified above; the URL carries no identity of its own, which is why
+    // the TTL is minutes rather than hours.
+    const url = await createDownloadUrl({
+      key: file.filePath,
+      filename: downloadName,
     })
 
-    return new NextResponse(webStream, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': String(file.fileSize),
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(downloadName)}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
-        'Cache-Control': 'private, no-store',
-      },
+    // 307 keeps the method and is not cached by intermediaries, so an expired
+    // URL is never replayed from a cache after the TTL passes.
+    return NextResponse.redirect(url, {
+      status: 307,
+      headers: { 'Cache-Control': 'private, no-store' },
     })
   } catch (error: any) {
     console.error('[GET /api/products/[id]/download] Error:', error)
