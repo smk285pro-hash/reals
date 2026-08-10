@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -29,6 +28,7 @@ model User {
   sellerApplication    SellerApplication?
   notifications        Notification[]
   purchases            Purchase[]
+  analyticsEvents      AnalyticsEvent[]
 }
 
 model Account {
@@ -101,6 +101,29 @@ model Product {
   reviews      Review[]
   files        ProductFile[]
   purchases    Purchase[]
+  analyticsEvents AnalyticsEvent[]
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  eventType  String   // PAGE_VIEW or PRODUCT_VIEW
+  visitorId  String
+  path       String
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  referrer   String?
+  userAgent  String?
+  device     String?
+  browser    String?
+  country    String?
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([eventType, createdAt])
+  @@index([productId, createdAt])
+  @@index([visitorId, createdAt])
 }
 
 model ProductFile {

@@ -36,6 +36,15 @@ export async function GET(req: NextRequest) {
       reportsByType,
       revenueByFormat,
       recentActivity,
+      pageViews,
+      productViews,
+      uniqueVisitors,
+      topPages,
+      trafficByDevice,
+      trafficByBrowser,
+      trafficByCountry,
+      trafficByReferrer,
+      dailyTraffic,
     ] = await Promise.all([
       // Users by role
       db.user.groupBy({ by: ['role'], _count: true }),
@@ -102,6 +111,16 @@ export async function GET(req: NextRequest) {
           include: { reporter: { select: { name: true } } },
         }).then(reports => reports.map(r => ({ type: 'REPORT_SUBMITTED', id: r.id, createdAt: r.createdAt, reason: r.reason, reporterName: r.reporter.name }))),
       ]).then(arrays => arrays.flat().sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 15)),
+
+      db.analyticsEvent.count({ where: { eventType: 'PAGE_VIEW', ...dateFilter } }),
+      db.analyticsEvent.count({ where: { eventType: 'PRODUCT_VIEW', ...dateFilter } }),
+      db.analyticsEvent.findMany({ where: dateFilter, distinct: ['visitorId'], select: { visitorId: true } }),
+      db.analyticsEvent.groupBy({ by: ['path'], where: { eventType: 'PAGE_VIEW', ...dateFilter }, _count: true, orderBy: { _count: { path: 'desc' } }, take: 10 }),
+      db.analyticsEvent.groupBy({ by: ['device'], where: { eventType: 'PAGE_VIEW', ...dateFilter }, _count: true, orderBy: { _count: { device: 'desc' } } }),
+      db.analyticsEvent.groupBy({ by: ['browser'], where: { eventType: 'PAGE_VIEW', ...dateFilter }, _count: true, orderBy: { _count: { browser: 'desc' } } }),
+      db.analyticsEvent.groupBy({ by: ['country'], where: { eventType: 'PAGE_VIEW', ...dateFilter }, _count: true, orderBy: { _count: { country: 'desc' } }, take: 10 }),
+      db.analyticsEvent.groupBy({ by: ['referrer'], where: { eventType: 'PAGE_VIEW', ...dateFilter }, _count: true, orderBy: { _count: { referrer: 'desc' } }, take: 10 }),
+      db.analyticsEvent.findMany({ where: { eventType: 'PAGE_VIEW', ...dateFilter }, select: { createdAt: true }, orderBy: { createdAt: 'asc' } }),
     ])
 
     // Process top sellers - calculate total sales
@@ -126,6 +145,21 @@ export async function GET(req: NextRequest) {
       reportsByType,
       revenueByFormat,
       recentActivity,
+      traffic: {
+        pageViews,
+        productViews,
+        uniqueVisitors: uniqueVisitors.length,
+        topPages,
+        byDevice: trafficByDevice,
+        byBrowser: trafficByBrowser,
+        byCountry: trafficByCountry,
+        byReferrer: trafficByReferrer,
+        daily: dailyTraffic.reduce((acc: Record<string, number>, event) => {
+          const day = event.createdAt.toISOString().slice(0, 10)
+          acc[day] = (acc[day] || 0) + 1
+          return acc
+        }, {}),
+      },
     })
   } catch (error: any) {
     console.error('[GET /api/admin/analytics] Error:', error)

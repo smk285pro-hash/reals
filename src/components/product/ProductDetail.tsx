@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import type { Product } from '@/types'
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { trackAnalyticsEvent } from '@/components/analytics/AnalyticsTracker'
 
 /**
  * Extract YouTube video ID from various URL formats
@@ -82,6 +83,10 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [ownsProduct, setOwnsProduct] = useState(false)
   const [checkingOwnership, setCheckingOwnership] = useState(true)
   const [downloading, setDownloading] = useState(false)
+
+  useEffect(() => {
+    trackAnalyticsEvent('PRODUCT_VIEW', product.id)
+  }, [product.id])
 
   useEffect(() => {
     if (!session?.user) {

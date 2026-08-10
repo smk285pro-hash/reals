@@ -64,6 +64,17 @@ interface AnalyticsData {
   reportsByType: { type: string; _count: number }[]
   revenueByFormat: { format: string; _sum: { price: number | null; sales: number | null }; _count: number }[]
   recentActivity: any[]
+  traffic: {
+    pageViews: number
+    productViews: number
+    uniqueVisitors: number
+    topPages: { path: string; _count: number }[]
+    byDevice: { device: string | null; _count: number }[]
+    byBrowser: { browser: string | null; _count: number }[]
+    byCountry: { country: string | null; _count: number }[]
+    byReferrer: { referrer: string | null; _count: number }[]
+    daily: Record<string, number>
+  }
 }
 
 function StatCard({ icon: Icon, label, value, color }: any) {
@@ -715,6 +726,58 @@ export default function AdminDashboard() {
                   <StatCard icon={Flag} label="Báo cáo chờ" value={analytics.reportsByStatus.find(r => r.status === 'PENDING')?._count || 0} color="bg-yellow-500/20 text-yellow-400" />
                   <StatCard icon={Package} label="Tổng sản phẩm" value={analytics.productsByStatus.reduce((s, p) => s + p._count, 0)} color="bg-[#a855f7]/20 text-[#a855f7]" />
                   <StatCard icon={TrendingUp} label="Top format" value={analytics.revenueByFormat.sort((a, b) => (b._sum.sales || 0) - (a._sum.sales || 0))[0]?.format || '-'} color="bg-[#3fb950]/20 text-[#3fb950]" />
+                </div>
+
+                {/* First-party traffic metrics */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold text-white">Lưu lượng website</h3>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <StatCard icon={Eye} label="Lượt truy cập trang" value={analytics.traffic.pageViews} color="bg-[#3ea6ff]/20 text-[#3ea6ff]" />
+                    <StatCard icon={Users} label="Người dùng duy nhất" value={analytics.traffic.uniqueVisitors} color="bg-[#f5a623]/20 text-[#f5a623]" />
+                    <StatCard icon={Package} label="Lượt xem sản phẩm" value={analytics.traffic.productViews} color="bg-[#a855f7]/20 text-[#a855f7]" />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-white">Trang được xem nhiều</h3>
+                    <div className="space-y-2">
+                      {analytics.traffic.topPages.map((item) => (
+                        <div key={item.path} className="flex items-center justify-between rounded-lg bg-[#0f0f0f] p-2 text-xs">
+                          <span className="truncate text-[#ccc]">{item.path}</span>
+                          <span className="ml-3 font-bold text-white">{item._count}</span>
+                        </div>
+                      ))}
+                      {analytics.traffic.topPages.length === 0 && <p className="py-4 text-center text-xs text-[#888]">Chưa có dữ liệu</p>}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-white">Thiết bị và trình duyệt</h3>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <p className="mb-2 text-xs text-[#888]">Thiết bị</p>
+                        {analytics.traffic.byDevice.map((item) => <div key={item.device || 'unknown'} className="flex justify-between py-1 text-xs text-[#ccc]"><span>{item.device || 'Không rõ'}</span><b>{item._count}</b></div>)}
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs text-[#888]">Trình duyệt</p>
+                        {analytics.traffic.byBrowser.map((item) => <div key={item.browser || 'unknown'} className="flex justify-between py-1 text-xs text-[#ccc]"><span>{item.browser || 'Không rõ'}</span><b>{item._count}</b></div>)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-white">Quốc gia truy cập</h3>
+                    {analytics.traffic.byCountry.map((item) => <div key={item.country || 'unknown'} className="flex justify-between border-b border-[#252525] py-2 text-xs text-[#ccc]"><span>{item.country || 'Không xác định'}</span><b>{item._count}</b></div>)}
+                    {analytics.traffic.byCountry.length === 0 && <p className="py-4 text-center text-xs text-[#888]">Chưa có dữ liệu</p>}
+                  </div>
+                  <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <h3 className="mb-3 text-sm font-semibold text-white">Nguồn truy cập</h3>
+                    {analytics.traffic.byReferrer.map((item) => <div key={item.referrer || 'direct'} className="flex justify-between border-b border-[#252525] py-2 text-xs text-[#ccc]"><span className="max-w-[80%] truncate">{item.referrer || 'Trực tiếp'}</span><b>{item._count}</b></div>)}
+                    {analytics.traffic.byReferrer.length === 0 && <p className="py-4 text-center text-xs text-[#888]">Chưa có dữ liệu</p>}
+                  </div>
                 </div>
 
                 {/* Two Column Charts */}
