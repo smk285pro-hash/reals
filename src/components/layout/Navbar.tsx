@@ -150,7 +150,7 @@ export function Navbar() {
         {status === 'loading' ? (
           <div className="h-8 w-8 animate-pulse rounded-full bg-[#272727]" />
         ) : session?.user ? (
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full hover:bg-[#272727] p-0">
                 <Avatar className="h-8 w-8 border border-[#303030]">
