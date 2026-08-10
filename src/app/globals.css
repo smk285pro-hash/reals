@@ -88,6 +88,8 @@
     /* Prevent horizontal scroll caused by any descendant that overflows the viewport */
     overflow-x: hidden;
     max-width: 100vw;
+    /* Keep the layout width stable when Radix dropdowns temporarily lock body scroll. */
+    scrollbar-gutter: stable;
   }
   /* Make sure long flex children don't push layout out — enforce wrapping by default */
   body {
