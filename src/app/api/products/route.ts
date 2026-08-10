@@ -101,7 +101,8 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Không tìm thấy tài khoản' }, { status: 404 })
     }
-    if (!user.isSeller) {
+    const isAdmin = user.role === 'ADMIN'
+    if (!user.isSeller && !isAdmin) {
       return NextResponse.json({ error: 'Bạn cần được duyệt làm seller trước khi đăng sản phẩm' }, { status: 403 })
     }
 
@@ -133,8 +134,8 @@ export async function POST(req: NextRequest) {
         duration: body.duration || null,
         tags: body.tags || '',
         featured: body.featured || false,
-        published: false, // Not published until approved
-        reviewStatus: 'PENDING', // All new products need review
+        published: isAdmin ? true : false,
+        reviewStatus: isAdmin ? 'APPROVED' : 'PENDING',
         sellerId: userId,
       },
       include: { seller: { select: { id: true, name: true, image: true, avatar: true, isSeller: true } } },

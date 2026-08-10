@@ -109,6 +109,7 @@ function LoginGuard() {
 export function SellerDashboard() {
   const { setActiveCategory, setSellerApplyModalOpen } = useAppStore()
   const { status: authStatus, data: session, update: updateSession } = useSession()
+  const isAdmin = (session?.user as any)?.role === 'ADMIN'
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -376,7 +377,7 @@ export function SellerDashboard() {
             })
             if (!uploadRes.ok) toast.error('Sản phẩm đã tạo nhưng upload file thất bại')
           }
-          toast.success('Đã đăng sản phẩm mới — đang chờ duyệt')
+          toast.success(isAdmin ? 'Đã đăng sản phẩm và hiển thị ngay' : 'Đã đăng sản phẩm mới — đang chờ duyệt')
           success = true
         } else {
           const err = await res.json().catch(() => ({}))
@@ -716,7 +717,7 @@ export function SellerDashboard() {
               </div>
 
               {/* New product review notice */}
-              {!editingId && (
+              {!editingId && !isAdmin && (
                 <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   Sản phẩm mới sẽ được gửi để duyệt trước khi hiển thị công khai.
