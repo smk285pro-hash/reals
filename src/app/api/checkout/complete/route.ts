@@ -17,6 +17,21 @@ interface CheckoutItem {
  *
  * Body: { items: CheckoutItem[] }
  *
+ * PAID PRODUCTS ARE REJECTED HERE. No payment provider is wired up yet, so
+ * there is nothing that could have collected money before this route runs — the
+ * checkout UI's card form is a mockup and never transmits anything. A Purchase
+ * row is what `GET /api/products/[id]/download` treats as proof of payment, so
+ * minting one for a priced product would hand out paid files for free to anyone
+ * who can log in. Free products are unaffected: their grant is "logged in",
+ * which this route can legitimately establish.
+ *
+ * When a real provider is added, the paid branch below becomes a webhook that
+ * creates the Purchase after the charge settles. The download route needs no
+ * change — it already asks the right question.
+ *
+ * `isFree`/`price` are read from the database, never from the request body, so a
+ * forged `{ isFree: true }` cannot talk its way past the check.
+ *
  * Returns the list of purchased product IDs + the user's full purchase history.
  */
 export async function POST(req: NextRequest) {
@@ -55,6 +70,18 @@ export async function POST(req: NextRequest) {
       }
       if (!product.published) {
         skipped.push({ productId: item.productId, reason: 'Sản phẩm chưa được đăng' })
+        continue
+      }
+
+      // Payment gate. Trust the stored price, not the client's claim about it.
+      // Sellers may also take their own paid products, since they own the files
+      // already and blocking them would only be theatre.
+      const isPaid = !product.isFree && product.price > 0
+      if (isPaid && product.sellerId !== userId) {
+        skipped.push({
+          productId: product.id,
+          reason: 'Chưa hỗ trợ thanh toán — sản phẩm có phí tạm thời chưa mua được',
+        })
         continue
       }
 

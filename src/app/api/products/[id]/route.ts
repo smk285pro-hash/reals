@@ -60,13 +60,22 @@ export async function PUT(
       }
     }
 
+    // Same invariant as create: price and isFree must agree. Absent fields fall
+    // back to the stored row rather than to a default, so a partial update that
+    // only touches the title cannot silently reprice the product.
+    const rawPrice =
+      body.price == null ? existing.price : Math.max(0, Number(body.price) || 0)
+    const wantsFree = body.isFree == null ? existing.isFree : !!body.isFree
+    const isFree = wantsFree || rawPrice <= 0
+    const price = isFree ? 0 : rawPrice
+
     const product = await db.product.update({
       where: { id },
       data: {
         title: body.title?.trim(),
         description: body.description,
-        price: body.price,
-        isFree: body.isFree,
+        price,
+        isFree,
         format: body.format,
         categorySlug: body.categorySlug,
         thumbnail: body.thumbnail,

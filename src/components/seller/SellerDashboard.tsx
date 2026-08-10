@@ -7,6 +7,7 @@ import {
   Youtube, Upload, Loader2, CheckCircle2
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
+import { Thumbnail } from '@/components/product/Thumbnail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -116,6 +117,7 @@ export function SellerDashboard() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<ProductFormData>(emptyForm)
+  const [priceInput, setPriceInput] = useState('0')
   const [saving, setSaving] = useState(false)
   const [resubmittingId, setResubmittingId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -290,6 +292,7 @@ export function SellerDashboard() {
   // Open form for edit
   const openEdit = (product: Product) => {
     setEditingId(product.id)
+    setPriceInput(String(product.price ?? 0))
     setForm({
       title: product.title,
       description: product.description,
@@ -319,6 +322,8 @@ export function SellerDashboard() {
   // Open form for create
   const openCreate = () => {
     setEditingId(null)
+    setPriceInput('0')
+    setPendingProductFile(null)
     setForm(emptyForm)
     setYtThumbnails([])
     setYtVideoId(null)
@@ -361,6 +366,16 @@ export function SellerDashboard() {
           body: JSON.stringify({ ...form, reviewStatus: 'PENDING' }),
         })
         if (res.ok) {
+          const created = await res.json()
+          if (pendingProductFile && created?.id) {
+            const uploadData = new FormData()
+            uploadData.append('file', pendingProductFile)
+            const uploadRes = await fetch(`/api/seller/upload-file?productId=${created.id}`, {
+              method: 'POST',
+              body: uploadData,
+            })
+            if (!uploadRes.ok) toast.error('Sản phẩm đã tạo nhưng upload file thất bại')
+          }
           toast.success('Đã đăng sản phẩm mới — đang chờ duyệt')
           success = true
         } else {
@@ -370,6 +385,7 @@ export function SellerDashboard() {
       }
       if (success) {
         setShowForm(false)
+        setPendingProductFile(null)
         await fetchProducts()
       }
     } catch (e) {
@@ -397,6 +413,7 @@ export function SellerDashboard() {
     createdAt: string
   }
   const [productFiles, setProductFiles] = useState<ProductFileMeta[]>([])
+  const [pendingProductFile, setPendingProductFile] = useState<File | null>(null)
   const [fileUploading, setFileUploading] = useState(false)
   const [fileVersion, setFileVersion] = useState('')
   const productFileInputRef = useRef<HTMLInputElement>(null)
@@ -505,7 +522,9 @@ export function SellerDashboard() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!editingId) {
-      toast.error('Vui lòng lưu sản phẩm trước khi upload file')
+      setPendingProductFile(file)
+      toast.success(`Đã chọn file "${file.name}" — sẽ upload sau khi tạo sản phẩm`)
+      if (productFileInputRef.current) productFileInputRef.current.value = ''
       return
     }
 
@@ -731,8 +750,18 @@ export function SellerDashboard() {
                     <label className="mb-1 block text-sm font-medium text-[#ccc]">Giá ($)</label>
                     <Input
                       type="number"
-                      value={form.isFree ? 0 : form.price}
-                      onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
+                      min="0"
+                      step="0.01"
+                      value={form.isFree ? '0' : priceInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setPriceInput(value)
+                        setForm({
+                          ...form,
+                          price: value === '' ? 0 : Math.max(0, Number(value) || 0),
+                          isFree: value !== '' && Number(value) <= 0 ? true : form.isFree,
+                        })
+                      }}
                       disabled={form.isFree}
                       className="border-[#303030] bg-[#1a1a1a] text-white disabled:opacity-50"
                     />
@@ -744,7 +773,11 @@ export function SellerDashboard() {
                           ? 'border-[#3fb950] bg-[#3fb950]/20 text-[#3fb950]'
                           : 'border-[#303030] bg-[#1a1a1a] text-[#888] hover:border-[#555]'
                       }`}
-                      onClick={() => setForm({ ...form, isFree: !form.isFree, price: form.isFree ? form.price : 0 })}
+                      onClick={() => {
+                        const nextFree = !form.isFree
+                        setForm({ ...form, isFree: nextFree, price: nextFree ? 0 : Math.max(0, Number(priceInput) || 0) })
+                        if (nextFree) setPriceInput('0')
+                      }}
                     >
                       {form.isFree ? '✓ Miễn phí' : 'Miễn phí'}
                     </button>
@@ -872,13 +905,10 @@ export function SellerDashboard() {
                     {/* Preview */}
                     {form.thumbnail && (
                       <div className="mt-1 aspect-video w-full max-w-[360px] overflow-hidden rounded-lg bg-[#333]">
-                        <img
+                        <Thumbnail
                           src={form.thumbnail}
                           alt="Preview"
                           className="h-full w-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none'
-                          }}
                         />
                       </div>
                     )}
@@ -960,12 +990,10 @@ export function SellerDashboard() {
                     )}
                   </div>
 
-                  {!editingId ? (
-                    <p className="text-xs text-[#888]">
-                      💡 Lưu sản phẩm trước, sau đó upload file để buyer tải về.
-                    </p>
-                  ) : (
-                    <>
+                  {!editingId && pendingProductFile && (
+                    <p className="mb-3 text-xs text-emerald-400">✓ Đã chọn: {pendingProductFile.name} — sẽ upload sau khi tạo sản phẩm</p>
+                  )}
+                  <>
                       {/* Upload row */}
                       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Input
@@ -1038,8 +1066,7 @@ export function SellerDashboard() {
                       <p className="mt-3 text-[10px] text-[#666]">
                         Hỗ trợ: .zip, .rar, .7z, .lua, .eel, .jsfx, .py, .reaperconfigzip, .txt, .md, .pdf — tối đa 500MB
                       </p>
-                    </>
-                  )}
+                  </>
                 </div>
               </div>
             </div>
@@ -1092,7 +1119,7 @@ export function SellerDashboard() {
                 className={`group rounded-xl border border-[#303030] bg-[#1a1a1a] p-4 transition-all hover:border-[#444] ${!product.published ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-start gap-4">
-                  <img
+                  <Thumbnail
                     src={product.thumbnail}
                     alt={product.title}
                     className="hidden h-14 w-24 shrink-0 rounded-lg object-cover sm:block"

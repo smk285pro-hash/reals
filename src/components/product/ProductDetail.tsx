@@ -6,6 +6,7 @@ import {
   Loader2, Lock
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
+import { Thumbnail } from '@/components/product/Thumbnail'
 import { useAppStore, useCartStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -70,6 +71,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const { data: session } = useSession()
   const inCart = isInCart(product.id)
   const inWishlist = isInWishlist(product.id)
+  // Treat legacy rows with price 0 as free even if their old isFree flag is false.
+  const isFreeProduct = product.isFree || product.price <= 0
   const badges = getProductBadges(product)
   const [copied, setCopied] = useState(false)
   const [muted, setMuted] = useState(true)
@@ -100,7 +103,12 @@ export function ProductDetail({ product }: ProductDetailProps) {
       .finally(() => setCheckingOwnership(false))
   }, [session, product.id])
 
-  // Download handler — redirects to /api/products/[id]/download which streams the file
+  // Download handler — asks /api/products/[id]/download for a presigned R2 URL
+  // and navigates to it. We deliberately do NOT fetch the file itself: the
+  // bucket is private and sends no CORS headers, so following the redirect from
+  // script would fail, and a 500MB plugin should not be buffered into a Blob in
+  // memory. The presigned URL carries Content-Disposition: attachment, so the
+  // navigation downloads rather than replacing the page.
   const handleDownload = useCallback(async () => {
     if (!session?.user) {
       toast.info('Vui lòng đăng nhập để tải file')
@@ -109,7 +117,9 @@ export function ProductDetail({ product }: ProductDetailProps) {
     }
     setDownloading(true)
     try {
-      const res = await fetch(`/api/products/${product.id}/download`)
+      const res = await fetch(`/api/products/${product.id}/download`, {
+        headers: { Accept: 'application/json' },
+      })
       if (res.status === 401) {
         toast.info('Vui lòng đăng nhập để tải file')
         setLoginModalOpen(true)
@@ -130,27 +140,20 @@ export function ProductDetail({ product }: ProductDetailProps) {
         toast.error(data?.error || 'Lỗi tải file')
         return
       }
-      // Convert to blob and trigger download
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      // Try to extract filename from Content-Disposition
-      const cd = res.headers.get('Content-Disposition') || ''
-      const match = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="([^"]+)"/i)
-      a.download = match ? decodeURIComponent(match[1]) : `${product.title}.zip`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      toast.success('Đã tải file về')
+      const data = await res.json()
+      if (!data?.url) {
+        toast.error('Không lấy được link tải')
+        return
+      }
+      window.location.href = data.url
+      toast.success('Đang bắt đầu tải...')
     } catch (e) {
       console.error('[download] error:', e)
       toast.error('Lỗi kết nối server')
     } finally {
       setDownloading(false)
     }
-  }, [session, product.id, setLoginModalOpen, setCartDrawerOpen, product.title])
+  }, [session, product.id, setLoginModalOpen, setCartDrawerOpen])
 
   // YouTube embed logic — auto-play, fully chromeless (no controls ever)
   const ytVideoId = product.videoUrl ? extractYouTubeVideoId(product.videoUrl) : null
@@ -239,7 +242,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
               </div>
             ) : (
               // No video — just thumbnail
-              <img
+              <Thumbnail
                 src={product.thumbnail}
                 alt={product.title}
                 className="h-full w-full object-cover"
@@ -349,12 +352,12 @@ export function ProductDetail({ product }: ProductDetailProps) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[#aaa]">Giá</span>
-                  <span className={`text-2xl font-bold ${product.isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
-                    {product.isFree ? 'MIỄN PHÍ' : `$${product.price}`}
+                  <span className={`text-2xl font-bold ${isFreeProduct ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
+                    {isFreeProduct ? 'MIỄN PHÍ' : `$${product.price}`}
                   </span>
                 </div>
 
-                {product.isFree ? (
+                {isFreeProduct ? (
                   /* FREE product — login required to download */
                   <Button
                     className="w-full gap-2 rounded-lg bg-[#3fb950] py-3 text-sm font-semibold text-black hover:bg-[#2ea043]"
@@ -383,42 +386,32 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     {downloading ? 'Đang tải...' : 'Tải xuống (đã mua)'}
                   </Button>
                 ) : (
-                  /* PAID product — not purchased yet → Add to cart */
+                  /* PAID product — not purchased. No payment provider is wired
+                     up yet, so there is nothing to add it to the cart for. The
+                     server rejects paid checkouts regardless; this just avoids
+                     walking the user into a dead end. */
                   <Button
-                    className={`w-full gap-2 rounded-lg py-3 text-sm font-semibold ${
-                      inCart
-                        ? 'bg-[#272727] text-[#f5a623] hover:bg-[#333]'
-                        : 'bg-[#f5a623] text-black hover:bg-[#e09515]'
-                    }`}
-                    onClick={() => {
-                      if (!inCart) {
-                        addItem(product)
-                        toast.success('Đã thêm vào giỏ hàng')
-                      }
-                    }}
+                    disabled
+                    className="w-full gap-2 rounded-lg bg-[#272727] py-3 text-sm font-semibold text-[#888] disabled:opacity-100"
                   >
-                    {inCart ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <ShoppingCart className="h-4 w-4" />
-                    )}
-                    {inCart ? 'Đã thêm vào giỏ ✓' : 'Thêm vào giỏ hàng'}
+                    <Lock className="h-4 w-4" />
+                    Sắp mở bán
                   </Button>
                 )}
 
                 {/* Sub-status hint */}
-                {!product.isFree && ownsProduct && (
+                {!isFreeProduct && ownsProduct && (
                   <p className="text-center text-xs text-[#3fb950]">
                     ✓ Bạn đã sở hữu sản phẩm này — tải không giới hạn
                   </p>
                 )}
-                {!product.isFree && !ownsProduct && session?.user && (
+                {!isFreeProduct && !ownsProduct && session?.user && (
                   <p className="flex items-center justify-center gap-1.5 text-center text-xs text-[#888]">
                     <Lock className="h-3 w-3" />
-                    Mua để mở khóa file tải về — tải lại bất cứ lúc nào sau khi mua
+                    Tính năng thanh toán đang được hoàn thiện — sản phẩm này chưa thể mua
                   </p>
                 )}
-                {product.isFree && !session?.user && (
+                {isFreeProduct && !session?.user && (
                   <p className="flex items-center justify-center gap-1.5 text-center text-xs text-[#888]">
                     <Lock className="h-3 w-3" />
                     Đăng nhập để tải file miễn phí

@@ -1,6 +1,7 @@
 'use client'
 
 import { X, ShoppingCart, Minus, Plus, Trash2, CreditCard } from 'lucide-react'
+import { Thumbnail } from '@/components/product/Thumbnail'
 import { useCartStore, useAppStore } from '@/stores'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 export function CartDrawer() {
   const { cartDrawerOpen, setCartDrawerOpen, setCheckoutOpen } = useAppStore()
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCartStore()
+  const hasFreeItems = items.some((item) => item.product.isFree || item.product.price <= 0)
 
   if (!cartDrawerOpen) return null
 
@@ -61,7 +63,7 @@ export function CartDrawer() {
               <div className="space-y-0 p-5">
                 {items.map((item) => (
                   <div key={item.product.id} className="flex gap-3 py-3">
-                    <img
+                    <Thumbnail
                       src={item.product.thumbnail}
                       alt={item.product.title}
                       className="h-16 w-28 rounded-lg object-cover"
@@ -75,7 +77,7 @@ export function CartDrawer() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-[#f5a623]">
-                          {item.product.isFree ? 'FREE' : `$${item.product.price}`}
+                          {(item.product.isFree || item.product.price <= 0) ? 'FREE' : `$${item.product.price}`}
                         </span>
                         <div className="flex items-center gap-1">
                           <Button
@@ -124,14 +126,15 @@ export function CartDrawer() {
                 <span className="text-xl font-bold text-white">${totalPrice().toFixed(2)}</span>
               </div>
               <Button
-                className="w-full gap-2 rounded-lg bg-[#f5a623] py-3 text-sm font-semibold text-black hover:bg-[#e09515]"
+                disabled={!hasFreeItems}
+                className="w-full gap-2 rounded-lg bg-[#f5a623] py-3 text-sm font-semibold text-black hover:bg-[#e09515] disabled:cursor-not-allowed disabled:bg-[#272727] disabled:text-[#888]"
                 onClick={() => {
                   setCartDrawerOpen(false)
                   setCheckoutOpen(true)
                 }}
               >
                 <CreditCard className="h-4 w-4" />
-                Thanh toán
+                {hasFreeItems ? 'Nhận sản phẩm miễn phí' : 'Thanh toán đang tạm khóa'}
               </Button>
               <Button
                 variant="ghost"

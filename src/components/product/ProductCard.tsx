@@ -1,6 +1,7 @@
 'use client'
 
 import { BadgeCheck, Star, Eye, Heart } from 'lucide-react'
+import { Thumbnail } from '@/components/product/Thumbnail'
 import type { Product } from '@/types'
 import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { HoverPreview } from './HoverPreview'
@@ -106,7 +107,7 @@ export function ProductCard({ product }: ProductCardProps) {
               />
             </div>
           ) : (
-            <img
+            <Thumbnail
               src={product.thumbnail}
               alt={product.title}
               className={`h-full w-full object-cover transition-transform duration-200 ${hovering ? 'scale-105' : ''}`}
@@ -117,12 +118,12 @@ export function ProductCard({ product }: ProductCardProps) {
           {/* Price badge */}
           <div
             className={`absolute left-2 top-2 rounded px-2 py-0.5 text-xs font-bold uppercase ${
-              product.isFree
+              (product.isFree || product.price <= 0)
                 ? 'bg-[#3fb950] text-black'
                 : 'bg-[#f5a623] text-black'
             }`}
           >
-            {product.isFree ? 'FREE' : `$${Math.round(product.price)}`}
+            {(product.isFree || product.price <= 0) ? 'FREE' : `$${Math.round(product.price)}`}
           </div>
 
           {/* Product badges NEW/HOT/TOP */}

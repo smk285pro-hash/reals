@@ -4,30 +4,34 @@ import { X, CreditCard, Lock, CheckCircle, Loader2 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useCartStore, useAppStore } from '@/stores'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { useState } from 'react'
 
 export function CheckoutModal() {
   const { checkoutOpen, setCheckoutOpen, setLoginModalOpen } = useAppStore()
-  const { items, totalPrice, clearCart } = useCartStore()
+  const { items, clearCart } = useCartStore()
   const { data: session } = useSession()
-  const [step, setStep] = useState<'info' | 'payment' | 'success'>('info')
   const [completing, setCompleting] = useState(false)
 
   if (!checkoutOpen) return null
 
+  // Split by price, because only the free half can actually be claimed right
+  // now. The server enforces this too — it re-reads isFree/price from the
+  // database and refuses paid items — so this split is presentation, not
+  // protection.
+  const freeItems = items.filter((i) => i.product.isFree || i.product.price <= 0)
+  const paidItems = items.filter((i) => !i.product.isFree && i.product.price > 0)
+
   const handleClose = () => {
     if (completing) return
     setCheckoutOpen(false)
-    setStep('info')
   }
 
   const handleComplete = async () => {
     // Require login before checkout — without a user record we can't save Purchase rows
     if (!session?.user) {
-      toast.info('Vui lòng đăng nhập để hoàn tất thanh toán')
+      toast.info('Vui lòng đăng nhập để hoàn tất')
       setCheckoutOpen(false)
       setLoginModalOpen(true)
       return
@@ -39,23 +43,25 @@ export function CheckoutModal() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: items.map((i) => ({
+          items: freeItems.map((i) => ({
             productId: i.product.id,
             price: i.product.price,
-            isFree: i.product.isFree,
+            isFree: i.product.isFree || i.product.price <= 0,
           })),
         }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        toast.error(err?.error || 'Lỗi xử lý thanh toán')
+        toast.error(err?.error || 'Lỗi xử lý')
         return
       }
       const data = await res.json()
       clearCart()
-      setStep('success')
+      setCheckoutOpen(false)
       if (data.purchased?.length > 0) {
-        toast.success(`Đã mua thành công ${data.purchased.length} sản phẩm`)
+        toast.success(`Đã nhận ${data.purchased.length} sản phẩm — vào trang sản phẩm để tải`)
+      } else {
+        toast.info('Không có sản phẩm nào được thêm')
       }
     } catch (e) {
       console.error('[checkout/complete] error:', e)
@@ -75,7 +81,7 @@ export function CheckoutModal() {
           <div className="flex items-center justify-between border-b border-[#303030] px-6 py-4">
             <div className="flex items-center gap-3">
               <CreditCard className="h-5 w-5 text-[#f5a623]" />
-              <h2 className="text-lg font-semibold text-white">Thanh toán</h2>
+              <h2 className="text-lg font-semibold text-white">Xác nhận nhận sản phẩm</h2>
             </div>
             <Button
               variant="ghost"
@@ -87,145 +93,64 @@ export function CheckoutModal() {
             </Button>
           </div>
 
-          <div className="p-6">
-            {step === 'success' ? (
-              <div className="flex flex-col items-center gap-4 py-8">
-                <CheckCircle className="h-16 w-16 text-[#3fb950]" />
-                <h3 className="text-xl font-semibold text-white">Thanh toán thành công!</h3>
-                <p className="text-center text-sm text-[#aaa]">
-                  Cảm ơn bạn đã mua sắm. Sản phẩm sẽ được gửi qua email trong vài phút.
-                </p>
-                <Button
-                  className="mt-4 rounded-lg bg-[#f5a623] px-8 text-black hover:bg-[#e09515]"
-                  onClick={handleClose}
-                >
-                  Tiếp tục mua sắm
-                </Button>
+          <div className="space-y-4 p-6">
+            {/* Free items — these are what actually get claimed */}
+            {freeItems.length > 0 && (
+              <>
+                <h4 className="text-sm font-semibold text-[#aaa]">
+                  Sản phẩm miễn phí ({freeItems.length})
+                </h4>
+                {freeItems.map((item) => (
+                  <div key={item.product.id} className="flex items-center justify-between text-sm">
+                    <span className="flex-1 truncate text-[#ccc]">{item.product.title}</span>
+                    <span className="ml-2 font-medium text-[#3fb950]">MIỄN PHÍ</span>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* Paid items — shown so nothing silently vanishes from the cart */}
+            {paidItems.length > 0 && (
+              <>
+                <Separator className="bg-[#303030]" />
+                <div className="rounded-lg border border-[#3a3000] bg-[#1a1400] p-3">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[#f5a623]">
+                    <Lock className="h-3.5 w-3.5" />
+                    Chưa hỗ trợ thanh toán
+                  </div>
+                  {paidItems.map((item) => (
+                    <div key={item.product.id} className="flex items-center justify-between text-sm">
+                      <span className="flex-1 truncate text-[#888] line-through">
+                        {item.product.title}
+                      </span>
+                      <span className="ml-2 text-xs text-[#888]">${item.product.price}</span>
+                    </div>
+                  ))}
+                  <p className="mt-2 text-[11px] leading-relaxed text-[#888]">
+                    Cổng thanh toán đang được hoàn thiện. Những sản phẩm này sẽ không được
+                    tính trong lần xác nhận này.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {freeItems.length === 0 ? (
+              <div className="py-4 text-center text-sm text-[#888]">
+                Giỏ hàng không có sản phẩm miễn phí nào để nhận.
               </div>
             ) : (
-              <>
-                {/* Progress steps */}
-                <div className="mb-6 flex items-center gap-2">
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step === 'info' ? 'bg-[#f5a623] text-black' : 'bg-[#3fb950] text-black'}`}>
-                    {step === 'info' ? '1' : '✓'}
-                  </div>
-                  <div className={`h-0.5 flex-1 ${step === 'payment' ? 'bg-[#3fb950]' : 'bg-[#303030]'}`} />
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${step === 'payment' ? 'bg-[#f5a623] text-black' : 'bg-[#303030] text-[#888]'}`}>
-                    2
-                  </div>
-                </div>
-
-                {step === 'info' && (
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-white">Thông tin nhận hàng</h3>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Input placeholder="Họ và tên" className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]" />
-                      <Input placeholder="Email" type="email" className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]" />
-                    </div>
-                    <Input placeholder="Số điện thoại" className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]" />
-                    <Input placeholder="Ghi chú (tùy chọn)" className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]" />
-
-                    <Separator className="bg-[#303030]" />
-
-                    {/* Order summary */}
-                    <h4 className="text-sm font-semibold text-[#aaa]">Đơn hàng ({items.length} sản phẩm)</h4>
-                    {items.map((item) => (
-                      <div key={item.product.id} className="flex items-center justify-between text-sm">
-                        <span className="flex-1 truncate text-[#ccc]">{item.product.title}</span>
-                        <span className="ml-2 font-medium text-[#f5a623]">${item.product.price}</span>
-                      </div>
-                    ))}
-                    <Separator className="bg-[#303030]" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#aaa]">Tổng cộng</span>
-                      <span className="text-xl font-bold text-white">${totalPrice().toFixed(2)}</span>
-                    </div>
-
-                    <Button
-                      className="w-full rounded-lg bg-[#f5a623] py-3 text-black hover:bg-[#e09515]"
-                      onClick={() => setStep('payment')}
-                    >
-                      Tiếp tục thanh toán
-                    </Button>
-                  </div>
+              <Button
+                className="w-full gap-2 rounded-lg bg-[#3fb950] py-3 font-semibold text-black hover:bg-[#2ea043]"
+                onClick={handleComplete}
+                disabled={completing}
+              >
+                {completing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4" />
                 )}
-
-                {step === 'payment' && (
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-white">Phương thức thanh toán</h3>
-
-                    {/* Payment options */}
-                    <div className="space-y-2">
-                      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#f5a623] bg-[#1a1a1a] p-4">
-                        <input type="radio" name="payment" defaultChecked className="accent-[#f5a623]" />
-                        <CreditCard className="h-5 w-5 text-[#f5a623]" />
-                        <div>
-                          <div className="text-sm font-medium text-white">Thẻ tín dụng / Ghi nợ</div>
-                          <div className="text-xs text-[#888]">Visa, Mastercard, JCB</div>
-                        </div>
-                      </label>
-                      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#303030] bg-[#1a1a1a] p-4 hover:border-[#555]">
-                        <input type="radio" name="payment" className="accent-[#f5a623]" />
-                        <span className="text-lg">🏦</span>
-                        <div>
-                          <div className="text-sm font-medium text-white">Chuyển khoản ngân hàng</div>
-                          <div className="text-xs text-[#888]">QR Code, Internet Banking</div>
-                        </div>
-                      </label>
-                      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#303030] bg-[#1a1a1a] p-4 hover:border-[#555]">
-                        <input type="radio" name="payment" className="accent-[#f5a623]" />
-                        <span className="text-lg">🅿️</span>
-                        <div>
-                          <div className="text-sm font-medium text-white">PayPal</div>
-                          <div className="text-xs text-[#888]">International payment</div>
-                        </div>
-                      </label>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Input placeholder="Số thẻ" className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]" />
-                      <div className="grid grid-cols-2 gap-3">
-                        <Input placeholder="MM/YY" className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]" />
-                        <Input placeholder="CVV" className="border-[#303030] bg-[#1a1a1a] text-white placeholder:text-[#666]" />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-[#888]">
-                      <Lock className="h-3 w-3" />
-                      Thanh toán được mã hóa SSL 256-bit
-                    </div>
-
-                    <Separator className="bg-[#303030]" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#aaa]">Tổng thanh toán</span>
-                      <span className="text-xl font-bold text-[#f5a623]">${totalPrice().toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Button
-                        variant="ghost"
-                        className="flex-1 text-[#aaa] hover:bg-[#272727] hover:text-white"
-                        onClick={() => setStep('info')}
-                        disabled={completing}
-                      >
-                        Quay lại
-                      </Button>
-                      <Button
-                        className="flex-1 gap-2 rounded-lg bg-[#f5a623] text-black hover:bg-[#e09515]"
-                        onClick={handleComplete}
-                        disabled={completing}
-                      >
-                        {completing ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Lock className="h-4 w-4" />
-                        )}
-                        {completing ? 'Đang xử lý...' : 'Xác nhận'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
+                {completing ? 'Đang xử lý...' : `Nhận ${freeItems.length} sản phẩm miễn phí`}
+              </Button>
             )}
           </div>
         </div>

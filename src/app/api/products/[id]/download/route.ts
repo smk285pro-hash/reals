@@ -14,14 +14,21 @@ import { createDownloadUrl } from '@/lib/fileStorage'
  *  - If product is FREE: any logged-in user can download
  *  - If product is PAID: user must have a Purchase record
  *
- * Returns a 307 redirect to a short-lived presigned R2 URL. The redirect is the
- * only way the object leaves storage — the bucket is private, and the URL
- * expires in 15 minutes, so a link cannot be usefully shared. Redirecting also
- * sidesteps Vercel's ~4.5MB function response cap, which a 500MB plugin would
- * otherwise hit.
+ * Returns a short-lived presigned R2 URL. The URL is the only way the object
+ * leaves storage — the bucket is private, and the URL expires in 15 minutes, so
+ * a link cannot be usefully shared. Handing the transfer to R2 also sidesteps
+ * Vercel's ~4.5MB function response cap, which a 500MB plugin would otherwise
+ * hit.
+ *
+ * Two response shapes, chosen by the `Accept` header:
+ *  - `application/json` → `{ url }`. Callers using `fetch()` must ask for this.
+ *    A 307 to R2 would be followed automatically as a cross-origin request, and
+ *    the private bucket sends no CORS headers, so the browser would discard the
+ *    response and the caller would see an opaque network failure.
+ *  - anything else → 307 redirect, for plain links and non-browser clients.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -107,6 +114,13 @@ export async function GET(
 
     // 307 keeps the method and is not cached by intermediaries, so an expired
     // URL is never replayed from a cache after the TTL passes.
+    if (req.headers.get('accept')?.includes('application/json')) {
+      return NextResponse.json(
+        { url, filename: downloadName },
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      )
+    }
+
     return NextResponse.redirect(url, {
       status: 307,
       headers: { 'Cache-Control': 'private, no-store' },

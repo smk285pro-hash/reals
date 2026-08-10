@@ -105,15 +105,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Bạn cần được duyệt làm seller trước khi đăng sản phẩm' }, { status: 403 })
     }
 
+    // Keep `isFree` and `price` from contradicting each other. The seller form
+    // lets the price stay at 0 without the "Miễn phí" toggle being on, which
+    // used to save price=0 alongside isFree=false — a row the UI read as paid
+    // (and locked behind a purchase) while the server read as free. Deriving one
+    // flag from the other here means a single question, "is this free?", has a
+    // single answer everywhere downstream.
+    const rawPrice = body.price == null ? 0 : Math.max(0, Number(body.price) || 0)
+    const isFree = !!body.isFree || rawPrice <= 0
+    const price = isFree ? 0 : rawPrice
+
     const product = await db.product.create({
       data: {
         title: body.title.trim(),
         description: body.description || '',
-        price: body.price || 0,
-        isFree: body.isFree || false,
+        price,
+        isFree,
         format: body.format || 'JSFX',
         categorySlug: body.categorySlug || 'effects',
-        thumbnail: body.thumbnail || 'https://images.unsplash.com/photo-1598488035243-1a23a6e36919?w=640&h=360&fit=crop',
+        // No placeholder default. This used to fall back to a hardcoded
+        // Unsplash URL that has since 404'd, and because the fallback was
+        // written on create, a product saved before its thumbnail was uploaded
+        // kept the dead link forever — the later upload never overwrote it.
+        // Empty means "no thumbnail"; the render sites handle that.
+        thumbnail: body.thumbnail || '',
         videoUrl: body.videoUrl || null,
         duration: body.duration || null,
         tags: body.tags || '',
