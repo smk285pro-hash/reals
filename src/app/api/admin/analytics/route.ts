@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       trafficByCountry,
       trafficByReferrer,
       dailyTraffic,
+      visitorEvents,
     ] = await Promise.all([
       // Users by role
       db.user.groupBy({ by: ['role'], _count: true }),
@@ -121,7 +122,65 @@ export async function GET(req: NextRequest) {
       db.analyticsEvent.groupBy({ by: ['country'], where: { eventType: 'PAGE_VIEW', ...dateFilter }, _count: true, orderBy: { _count: { country: 'desc' } }, take: 10 }),
       db.analyticsEvent.groupBy({ by: ['referrer'], where: { eventType: 'PAGE_VIEW', ...dateFilter }, _count: true, orderBy: { _count: { referrer: 'desc' } }, take: 10 }),
       db.analyticsEvent.findMany({ where: { eventType: 'PAGE_VIEW', ...dateFilter }, select: { createdAt: true }, orderBy: { createdAt: 'asc' } }),
+      db.analyticsEvent.findMany({
+        where: dateFilter,
+        select: { eventType: true, visitorId: true, country: true, device: true, browser: true, userId: true, createdAt: true, path: true, user: { select: { name: true, email: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 5000,
+      }),
     ])
+
+    const visitorMap = new Map<string, any>()
+    for (const event of visitorEvents) {
+      const key = event.visitorId
+      const current = visitorMap.get(key)
+      if (!current) {
+        visitorMap.set(key, {
+          visitorId: key,
+          userId: event.userId,
+          user: event.user,
+          country: event.country,
+          devices: new Set(event.device ? [event.device] : []),
+          browsers: new Set(event.browser ? [event.browser] : []),
+          sessions: 1,
+          lastSeen: event.createdAt,
+          lastPath: event.path,
+          recentEvents: [],
+          minuteBuckets: new Map<string, number>(),
+        })
+      } else {
+        if (event.device) current.devices.add(event.device)
+        if (event.browser) current.browsers.add(event.browser)
+        if (!current.userId && event.userId) { current.userId = event.userId; current.user = event.user }
+        current.sessions += 1
+      }
+      const visitor = visitorMap.get(key)
+      if (visitor.recentEvents.length < 20) visitor.recentEvents.push({ eventType: event.eventType, path: event.path, createdAt: event.createdAt })
+      const minute = event.createdAt.toISOString().slice(0, 16)
+      visitor.minuteBuckets.set(minute, (visitor.minuteBuckets.get(minute) || 0) + 1)
+    }
+    const visitors = Array.from(visitorMap.values()).map((v: any) => ({
+      ...v,
+      devices: Array.from(v.devices),
+      browsers: Array.from(v.browsers),
+      maxEventsPerMinute: Math.max(0, ...Array.from(v.minuteBuckets.values()) as number[]),
+      minuteBuckets: undefined,
+    })).map((v: any) => {
+      let riskScore = 0
+      const reasons: string[] = []
+      if (v.maxEventsPerMinute >= 20) { riskScore += 60; reasons.push('Truy cập quá nhanh') }
+      else if (v.maxEventsPerMinute >= 10) { riskScore += 30; reasons.push('Tần suất cao') }
+      if (v.sessions >= 200) { riskScore += 30; reasons.push(`${v.sessions} sự kiện trong kỳ`) }
+      else if (v.sessions >= 100) { riskScore += 15; reasons.push('Khối lượng truy cập lớn') }
+      const riskLevel = riskScore >= 60 ? 'HIGH' : riskScore >= 30 ? 'MEDIUM' : 'LOW'
+      return { ...v, riskScore: Math.min(riskScore, 100), riskLevel, riskReasons: reasons }
+    }).sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime()).slice(0, 100)
+
+    const securityAlerts = visitors
+      .filter((v: any) => v.riskLevel !== 'LOW')
+      .sort((a: any, b: any) => b.riskScore - a.riskScore)
+      .slice(0, 20)
+      .map((v: any) => ({ type: 'VISITOR_RISK', severity: v.riskLevel, visitorId: v.visitorId, title: v.riskReasons.join(' • '), createdAt: v.lastSeen }))
 
     // Process top sellers - calculate total sales
     const processedSellers = topSellers.map(s => ({
@@ -159,6 +218,8 @@ export async function GET(req: NextRequest) {
           acc[day] = (acc[day] || 0) + 1
           return acc
         }, {}),
+        visitors,
+        securityAlerts,
       },
     })
   } catch (error: any) {

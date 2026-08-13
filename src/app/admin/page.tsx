@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import {
   Users, Package, DollarSign, Clock, CheckCircle, XCircle,
   Search, ArrowLeft, Shield, Eye, EyeOff,
   Star, Trash2, UserCheck, TrendingUp, AlertCircle,
   Flag, BarChart3, Ban, MessageSquare, ExternalLink,
-  ChevronDown, AlertTriangle, FileWarning, ClipboardList, Send
+  ChevronDown, AlertTriangle, FileWarning, ClipboardList, Send, Monitor, Globe2, Activity, Database, HardDrive, Zap
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -74,7 +74,36 @@ interface AnalyticsData {
     byCountry: { country: string | null; _count: number }[]
     byReferrer: { referrer: string | null; _count: number }[]
     daily: Record<string, number>
+    visitors: {
+      visitorId: string
+      userId: string | null
+      user: { name: string | null; email: string } | null
+      country: string | null
+      devices: string[]
+      browsers: string[]
+      sessions: number
+      lastSeen: string
+      lastPath: string
+      maxEventsPerMinute: number
+      riskScore: number
+      riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
+      riskReasons: string[]
+      recentEvents: { eventType: string; path: string; createdAt: string }[]
+    }[]
+    securityAlerts: { type: string; severity: string; visitorId: string; title: string; createdAt: string }[]
   }
+}
+
+interface HealthData {
+  status: string
+  checkedAt: string
+  responseTimeMs: number
+  checks: {
+    database: { status: string; latencyMs?: number; message?: string }
+    storage: { status: string; missing?: string[] }
+    analytics: { status: string; lastEventAt: string | null }
+  }
+  alerts: { type: string; severity: string; count: number; title: string }[]
 }
 
 function StatCard({ icon: Icon, label, value, color }: any) {
@@ -111,6 +140,7 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<AdminProduct[]>([])
   const [reports, setReports] = useState<ReportItem[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [health, setHealth] = useState<HealthData | null>(null)
   const [applications, setApplications] = useState<SellerApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQ, setSearchQ] = useState('')
@@ -118,6 +148,7 @@ export default function AdminDashboard() {
   const [reportFilter, setReportFilter] = useState('PENDING')
   const [appFilter, setAppFilter] = useState('PENDING')
   const [analyticsRange, setAnalyticsRange] = useState('30d')
+  const [expandedVisitor, setExpandedVisitor] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectNote, setRejectNote] = useState('')
 
@@ -163,6 +194,13 @@ export default function AdminDashboard() {
     } catch {} finally { setLoading(false) }
   }
 
+  const fetchHealth = async () => {
+    try {
+      const res = await fetch('/api/admin/health')
+      if (res.ok) setHealth(await res.json())
+    } catch {}
+  }
+
   const fetchApplications = async () => {
     setLoading(true)
     try {
@@ -176,7 +214,7 @@ export default function AdminDashboard() {
   useEffect(() => { if (tab === 'products' && userRole === 'ADMIN') fetchProducts() }, [tab, productFilter, userRole])
   useEffect(() => { if (tab === 'applications' && userRole === 'ADMIN') fetchApplications() }, [tab, appFilter, userRole])
   useEffect(() => { if (tab === 'reports' && userRole === 'ADMIN') fetchReports() }, [tab, reportFilter, userRole])
-  useEffect(() => { if (tab === 'analytics' && userRole === 'ADMIN') fetchAnalytics() }, [tab, analyticsRange, userRole])
+  useEffect(() => { if (tab === 'analytics' && userRole === 'ADMIN') { fetchAnalytics(); fetchHealth() } }, [tab, analyticsRange, userRole])
 
   // Auth guard
   if (authStatus === 'loading') {
@@ -738,6 +776,32 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* Important alerts + system health */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <div className="mb-3 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-yellow-400" /><h3 className="text-sm font-semibold text-white">Cảnh báo quan trọng</h3></div>
+                    <div className="space-y-2">
+                      {[...(health?.alerts || []), ...analytics.traffic.securityAlerts].slice(0, 10).map((alert: any, index) => (
+                        <div key={`${alert.type}-${alert.visitorId || index}`} className={`rounded-lg border p-3 text-xs ${alert.severity === 'HIGH' ? 'border-red-500/30 bg-red-500/5 text-red-300' : 'border-yellow-500/30 bg-yellow-500/5 text-yellow-300'}`}>
+                          <p className="font-medium">{alert.title}</p>
+                          {alert.visitorId && <p className="mt-1 font-mono text-[#888]">Visitor {alert.visitorId.slice(0, 12)}…</p>}
+                        </div>
+                      ))}
+                      {(health?.alerts.length || 0) + analytics.traffic.securityAlerts.length === 0 && <p className="py-5 text-center text-xs text-[#888]">Không có cảnh báo quan trọng</p>}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                    <div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-[#3fb950]" /><h3 className="text-sm font-semibold text-white">Sức khỏe hệ thống</h3></div><Button size="sm" variant="ghost" className="h-7 text-xs text-[#3ea6ff]" onClick={fetchHealth}>Kiểm tra lại</Button></div>
+                    {health ? <div className="space-y-2">
+                      <div className="flex items-center justify-between rounded-lg bg-[#0f0f0f] p-3 text-xs"><span className="flex items-center gap-2"><Database className="h-4 w-4 text-[#3ea6ff]" />Database</span><Badge className={health.checks.database.status === 'healthy' ? 'bg-[#3fb950]/15 text-[#3fb950]' : 'bg-red-500/15 text-red-400'}>{health.checks.database.status} {health.checks.database.latencyMs != null ? `• ${health.checks.database.latencyMs}ms` : ''}</Badge></div>
+                      <div className="flex items-center justify-between rounded-lg bg-[#0f0f0f] p-3 text-xs"><span className="flex items-center gap-2"><HardDrive className="h-4 w-4 text-[#a855f7]" />R2 Storage</span><Badge className={health.checks.storage.status === 'configured' ? 'bg-[#3fb950]/15 text-[#3fb950]' : 'bg-yellow-500/15 text-yellow-400'}>{health.checks.storage.status}</Badge></div>
+                      <div className="flex items-center justify-between rounded-lg bg-[#0f0f0f] p-3 text-xs"><span className="flex items-center gap-2"><Zap className="h-4 w-4 text-[#f5a623]" />Analytics</span><Badge className={health.checks.analytics.status === 'healthy' ? 'bg-[#3fb950]/15 text-[#3fb950]' : 'bg-yellow-500/15 text-yellow-400'}>{health.checks.analytics.status}</Badge></div>
+                      <div className="flex items-center justify-between pt-2 text-[11px] text-[#666]"><span>API health: {health.responseTimeMs}ms</span><span>{new Date(health.checkedAt).toLocaleString('vi-VN')}</span></div>
+                    </div> : <Skeleton className="h-40 w-full bg-[#272727]" />}
+                  </div>
+                </div>
+
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
                     <h3 className="mb-3 text-sm font-semibold text-white">Trang được xem nhiều</h3>
@@ -777,6 +841,75 @@ export default function AdminDashboard() {
                     <h3 className="mb-3 text-sm font-semibold text-white">Nguồn truy cập</h3>
                     {analytics.traffic.byReferrer.map((item) => <div key={item.referrer || 'direct'} className="flex justify-between border-b border-[#252525] py-2 text-xs text-[#ccc]"><span className="max-w-[80%] truncate">{item.referrer || 'Trực tiếp'}</span><b>{item._count}</b></div>)}
                     {analytics.traffic.byReferrer.length === 0 && <p className="py-4 text-center text-xs text-[#888]">Chưa có dữ liệu</p>}
+                  </div>
+                </div>
+
+                {/* Privacy-safe visitor identity overview */}
+                <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">Khách truy cập gần đây</h3>
+                      <p className="mt-1 text-xs text-[#888]">Nhóm theo mã trình duyệt ẩn danh; tài khoản chỉ hiện khi khách đã đăng nhập.</p>
+                    </div>
+                    <Badge variant="outline" className="border-[#3ea6ff]/30 text-[#3ea6ff]">{analytics.traffic.visitors.length} visitor</Badge>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[920px] text-left text-xs">
+                      <thead className="border-b border-[#303030] text-[#888]">
+                        <tr>
+                          <th className="px-2 py-2 font-medium">Visitor / tài khoản</th>
+                          <th className="px-2 py-2 font-medium">Thiết bị</th>
+                          <th className="px-2 py-2 font-medium">Quốc gia</th>
+                          <th className="px-2 py-2 font-medium">Lượt ghi nhận</th>
+                          <th className="px-2 py-2 font-medium">Lần cuối</th>
+                          <th className="px-2 py-2 font-medium">Nhận định</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.traffic.visitors.map(visitor => (
+                          <Fragment key={visitor.visitorId}>
+                          <tr className="border-b border-[#252525] text-[#ccc] cursor-pointer hover:bg-[#202020]" onClick={() => setExpandedVisitor(expandedVisitor === visitor.visitorId ? null : visitor.visitorId)}>
+                            <td className="px-2 py-3">
+                              <p className="font-mono text-[#f1f1f1]">{visitor.visitorId.slice(0, 12)}…</p>
+                              <p className="mt-1 max-w-[220px] truncate text-[#888]">{visitor.user ? visitor.user.name || visitor.user.email : 'Khách chưa đăng nhập'}</p>
+                            </td>
+                            <td className="px-2 py-3">
+                              <div className="flex items-center gap-1.5"><Monitor className="h-3.5 w-3.5 text-[#3ea6ff]" />{visitor.devices.join(', ') || 'Không rõ'}</div>
+                              <p className="mt-1 text-[#888]">{visitor.browsers.join(', ') || 'Không rõ'}</p>
+                            </td>
+                            <td className="px-2 py-3"><span className="inline-flex items-center gap-1"><Globe2 className="h-3.5 w-3.5" />{visitor.country || 'N/A'}</span></td>
+                            <td className="px-2 py-3 font-bold text-white">{visitor.sessions}</td>
+                            <td className="px-2 py-3">
+                              <p>{new Date(visitor.lastSeen).toLocaleString('vi-VN')}</p>
+                              <p className="mt-1 max-w-[150px] truncate text-[#666]">{visitor.lastPath}</p>
+                            </td>
+                            <td className="px-2 py-3">
+                              {visitor.riskLevel === 'HIGH' ? (
+                                <Badge className="bg-red-500/15 text-red-400">Nghi bot • {visitor.riskScore}</Badge>
+                              ) : visitor.riskLevel === 'MEDIUM' ? (
+                                <Badge className="bg-yellow-500/15 text-yellow-400">Đáng chú ý • {visitor.riskScore}</Badge>
+                              ) : visitor.userId ? (
+                                <Badge className="bg-[#3fb950]/15 text-[#3fb950]">Đã đăng nhập</Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-[#303030] text-[#aaa]">Một trình duyệt</Badge>
+                              )}
+                            </td>
+                          </tr>
+                          {expandedVisitor === visitor.visitorId && (
+                            <tr>
+                              <td colSpan={6} className="bg-[#101010] px-4 py-4" onClick={e => e.stopPropagation()}>
+                                <div className="grid gap-4 lg:grid-cols-3">
+                                  <div><p className="mb-2 font-medium text-white">Dấu hiệu</p><p className="text-[#888]">Tối đa {visitor.maxEventsPerMinute} event/phút • {visitor.sessions} sự kiện trong kỳ</p>{visitor.riskReasons.length > 0 && <p className="mt-2 text-yellow-400">{visitor.riskReasons.join(' • ')}</p>}</div>
+                                  <div className="lg:col-span-2"><p className="mb-2 font-medium text-white">Hoạt động gần nhất</p><div className="space-y-1">{visitor.recentEvents.slice(0, 10).map((event, index) => <div key={index} className="flex items-center justify-between rounded bg-[#1a1a1a] px-2 py-1.5"><span className="max-w-[70%] truncate">{event.eventType} • {event.path}</span><span className="text-[#666]">{new Date(event.createdAt).toLocaleString('vi-VN')}</span></div>)}</div></div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                    {analytics.traffic.visitors.length === 0 && <p className="py-8 text-center text-xs text-[#888]">Chưa có dữ liệu visitor</p>}
                   </div>
                 </div>
 
