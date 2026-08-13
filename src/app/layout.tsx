@@ -98,11 +98,6 @@ export async function generateMetadata(): Promise<Metadata> {
         'max-video-preview': -1,
       },
     },
-    icons: {
-      icon: [{ url: '/logo.svg', type: 'image/svg+xml' }],
-      shortcut: '/logo.svg',
-      apple: '/logo.svg',
-    },
   }
 }
 
