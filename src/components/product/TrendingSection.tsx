@@ -1,7 +1,9 @@
 'use client'
 
 import { TrendingUp, Star, BadgeCheck } from 'lucide-react'
+import { Thumbnail } from '@/components/product/Thumbnail'
 import type { Product } from '@/types'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 interface TrendingSectionProps {
   products: Product[]
@@ -13,6 +15,7 @@ function formatViews(n: number): string {
 }
 
 export function TrendingSection({ products }: TrendingSectionProps) {
+  const { t } = useI18n()
   // Get top 5 by views
   const trending = [...products]
     .sort((a, b) => b.views - a.views)
@@ -24,7 +27,7 @@ export function TrendingSection({ products }: TrendingSectionProps) {
     <div className="mb-6 overflow-hidden rounded-xl border border-[#303030] bg-gradient-to-r from-[#1a1400] to-[#0f0f0f]">
       <div className="flex items-center gap-2 px-4 py-3">
         <TrendingUp className="h-5 w-5 text-[#f5a623]" />
-        <h3 className="text-sm font-semibold text-[#f5a623]">Đang thịnh hành</h3>
+        <h3 className="text-sm font-semibold text-[#f5a623]">{t('trending')}</h3>
       </div>
       <div className="flex gap-0 overflow-x-auto px-2 pb-3">
         {trending.map((product, i) => (
@@ -35,7 +38,7 @@ export function TrendingSection({ products }: TrendingSectionProps) {
             <span className={`text-lg font-black ${i === 0 ? 'text-[#f5a623]' : i === 1 ? 'text-[#ccc]' : i === 2 ? 'text-[#cd7f32]' : 'text-[#555]'}`}>
               {i + 1}
             </span>
-            <img
+            <Thumbnail
               src={product.thumbnail}
               alt={product.title}
               className="h-10 w-16 rounded object-cover"
@@ -48,7 +51,7 @@ export function TrendingSection({ products }: TrendingSectionProps) {
               </div>
               <div className="flex items-center gap-1 text-[10px] text-[#888]">
                 <Star className="h-2.5 w-2.5 fill-[#f5a623] text-[#f5a623]" />
-                {product.rating} • {formatViews(product.views)} views
+                {product.rating} • {t('views', { count: formatViews(product.views) })}
               </div>
             </div>
           </div>

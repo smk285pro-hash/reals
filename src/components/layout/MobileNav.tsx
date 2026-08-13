@@ -3,8 +3,10 @@
 import { Home, Search, Heart, ShoppingCart, User, LayoutDashboard, Store, Bell } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useAppStore, useCartStore, useWishlistStore, useNotificationStore } from '@/stores'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 export function MobileNav() {
+  const { t } = useI18n()
   const { setActiveCategory, setCartDrawerOpen, setLoginModalOpen, setSellerApplyModalOpen, setNotificationOpen } = useAppStore()
   const cartCount = useCartStore((s) => s.totalItems())
   const wishlistCount = useWishlistStore((s) => s.items.length)
@@ -19,18 +21,18 @@ export function MobileNav() {
           className="flex flex-col items-center gap-0.5 text-[#f1f1f1]"
         >
           <Home className="h-5 w-5" />
-          <span className="text-[10px]">Trang chủ</span>
+          <span className="text-[10px]">{t('home')}</span>
         </button>
         <button className="flex flex-col items-center gap-0.5 text-[#aaa]">
           <Search className="h-5 w-5" />
-          <span className="text-[10px]">Tìm kiếm</span>
+          <span className="text-[10px]">{t('searchShort')}</span>
         </button>
         <button
           onClick={() => setActiveCategory('wishlist')}
           className="relative flex flex-col items-center gap-0.5 text-[#aaa]"
         >
           <Heart className="h-5 w-5" />
-          <span className="text-[10px]">Yêu thích</span>
+          <span className="text-[10px]">{t('wishlist')}</span>
           {wishlistCount > 0 && (
             <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#ff6b6b] px-1 text-[9px] font-bold text-white">
               {wishlistCount}
@@ -44,7 +46,7 @@ export function MobileNav() {
             className="relative flex flex-col items-center gap-0.5 text-[#aaa]"
           >
             <Bell className="h-5 w-5" />
-            <span className="text-[10px]">Thông báo</span>
+            <span className="text-[10px]">{t('notifications')}</span>
             {unreadCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#f5a623] px-1 text-[9px] font-bold text-black">
                 {unreadCount > 9 ? '9+' : unreadCount}
@@ -57,7 +59,7 @@ export function MobileNav() {
             className="relative flex flex-col items-center gap-0.5 text-[#aaa]"
           >
             <ShoppingCart className="h-5 w-5" />
-            <span className="text-[10px]">Giỏ hàng</span>
+            <span className="text-[10px]">{t('cart')}</span>
             {cartCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#f5a623] px-1 text-[9px] font-bold text-black">
                 {cartCount}
@@ -87,7 +89,7 @@ export function MobileNav() {
             className="flex flex-col items-center gap-0.5 text-[#aaa]"
           >
             <User className="h-5 w-5" />
-            <span className="text-[10px]">Đăng nhập</span>
+            <span className="text-[10px]">{t('login')}</span>
           </button>
         )}
       </div>

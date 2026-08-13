@@ -2,8 +2,36 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
-// Rate limiting store (in-memory, resets on redeploy)
+// Rate limiting store.
+//
+// In-memory, which on Vercel means per-instance: each serverless instance keeps
+// its own Map, so the real ceiling is RATE_LIMIT_MAX multiplied by however many
+// instances are warm, and a cold start resets a caller's count to zero. This
+// raises the cost of an attack without capping it. A shared store (Upstash,
+// Vercel KV) is the only way to enforce a real limit; until then treat these
+// numbers as a speed bump, not a control.
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+
+// Entries were previously never removed, so the Map grew without bound for the
+// life of an instance — one entry per distinct key, and the key includes the
+// caller IP, so any client cycling addresses could grow it indefinitely.
+const RATE_LIMIT_MAX_ENTRIES = 10_000
+
+function sweepExpired(now: number) {
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.resetTime) rateLimitMap.delete(key)
+  }
+  // If a burst of distinct keys outpaces expiry, drop the oldest rather than
+  // letting the Map grow: insertion order is iteration order for a Map.
+  if (rateLimitMap.size > RATE_LIMIT_MAX_ENTRIES) {
+    const excess = rateLimitMap.size - RATE_LIMIT_MAX_ENTRIES
+    let i = 0
+    for (const key of rateLimitMap.keys()) {
+      if (i++ >= excess) break
+      rateLimitMap.delete(key)
+    }
+  }
+}
 const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute
 const RATE_LIMIT_MAX = {
   default: 60,    // 60 req/min for normal pages
@@ -11,8 +39,43 @@ const RATE_LIMIT_MAX = {
   auth: 20,       // 20 req/min for auth endpoints (OAuth needs multiple calls)
 }
 
+/**
+ * The caller's address, preferring headers a client cannot forge.
+ *
+ * `x-forwarded-for` is client-settable: anything the caller sends is appended to
+ * by the proxy, so reading its first element let an attacker rotate the value per
+ * request and get a fresh bucket each time. Vercel overwrites
+ * `x-vercel-forwarded-for` with the real peer address, so it is trusted first,
+ * then `req.ip`, and only then the client-influenced headers as a last resort —
+ * where the LAST element is taken, since that is the hop the nearest trusted
+ * proxy appended rather than whatever the client prepended.
+ *
+ * Callers with no usable address share the 'unknown' bucket, which is why the
+ * bucket is now suffixed with the user agent: previously every such caller
+ * counted against one shared limit, so a single client could lock out others.
+ */
+function clientIp(req: NextRequest): string {
+  const vercel = req.headers.get('x-vercel-forwarded-for')
+  if (vercel) return vercel.split(',')[0].trim()
+
+  const real = req.headers.get('x-real-ip')
+  if (real) return real.trim()
+
+  const fwd = req.headers.get('x-forwarded-for')
+  if (fwd) {
+    const hops = fwd.split(',').map((h) => h.trim()).filter(Boolean)
+    if (hops.length > 0) return hops[hops.length - 1]
+  }
+
+  // Distinct fallback per user agent so unidentifiable callers do not collapse
+  // into one bucket and starve each other.
+  const ua = req.headers.get('user-agent') || 'no-ua'
+  return `unknown:${ua.slice(0, 40)}`
+}
+
 function rateLimit(ip: string, path: string): { allowed: boolean; remaining: number } {
   const now = Date.now()
+  sweepExpired(now)
 
   // Determine limit based on path
   let max = RATE_LIMIT_MAX.default
@@ -41,8 +104,26 @@ function rateLimit(ip: string, path: string): { allowed: boolean; remaining: num
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Skip middleware entirely for auth routes — let NextAuth handle them
+  // Auth routes are handled by NextAuth, but they are not exempt from rate
+  // limiting: this early return used to skip the limiter entirely, leaving
+  // POST /api/auth/callback/credentials open to unlimited password guessing.
+  // The RATE_LIMIT_MAX.auth bucket existed but was unreachable.
+  //
+  // Only the credentials callback is limited. OAuth flows legitimately make
+  // several rapid calls to /api/auth/session and /api/auth/providers, and
+  // throttling those would break sign-in.
   if (pathname.startsWith('/api/auth')) {
+    const isCredentialLogin =
+      req.method === 'POST' && pathname.startsWith('/api/auth/callback/credentials')
+    if (isCredentialLogin) {
+      const { allowed } = rateLimit(clientIp(req), pathname)
+      if (!allowed) {
+        return NextResponse.json(
+          { error: 'Quá nhiều lần đăng nhập. Vui lòng thử lại sau một phút.' },
+          { status: 429, headers: { 'Retry-After': '60' } }
+        )
+      }
+    }
     return NextResponse.next()
   }
 
@@ -74,11 +155,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // ─── Rate Limiting ───
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ||
-             req.headers.get('x-real-ip') ||
-             'unknown'
-
-  const { allowed, remaining } = rateLimit(ip, pathname)
+  const { allowed, remaining } = rateLimit(clientIp(req), pathname)
   response.headers.set('X-RateLimit-Remaining', String(remaining))
 
   if (!allowed) {
@@ -116,7 +193,11 @@ export async function middleware(req: NextRequest) {
   }
 
   // ─── Seller Route Protection ───
-  if (pathname.startsWith('/seller') && !pathname.startsWith('/seller/') === false) {
+  // Was `pathname.startsWith('/seller') && !pathname.startsWith('/seller/') === false`,
+  // which parsed as `(!startsWith('/seller/')) === false` because ! binds tighter
+  // than ===, collapsing the whole thing to `startsWith('/seller/')`. It gated the
+  // right paths by accident; written plainly so the next edit does not break it.
+  if (pathname.startsWith('/seller/')) {
     // /seller/dashboard, /seller/products etc. need SELLER or ADMIN role
     if (pathname.includes('/dashboard') || pathname.includes('/manage')) {
       const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })

@@ -9,25 +9,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-
-const sortOptions = [
-  { value: 'latest' as const, label: 'Mới nhất' },
-  { value: 'popular' as const, label: 'Phổ biến nhất' },
-  { value: 'rating' as const, label: 'Đánh giá cao' },
-  { value: 'price-asc' as const, label: 'Giá thấp → cao' },
-  { value: 'price-desc' as const, label: 'Giá cao → thấp' },
-  { value: 'best-selling' as const, label: 'Bán chạy nhất' },
-]
+import { useI18n } from '@/components/providers/I18nProvider'
 
 export function SortBar() {
+  const { t } = useI18n()
+  const sortOptions = [
+    { value: 'latest' as const, label: t('latest') },
+    { value: 'popular' as const, label: t('popular') },
+    { value: 'rating' as const, label: t('topRated') },
+    { value: 'price-asc' as const, label: t('priceLow') },
+    { value: 'price-desc' as const, label: t('priceHigh') },
+    { value: 'best-selling' as const, label: t('bestSelling') },
+  ]
   const { sortBy, setSortBy } = useAppStore()
-  const currentLabel = sortOptions.find((o) => o.value === sortBy)?.label || 'Sắp xếp'
+  const currentLabel = sortOptions.find((o) => o.value === sortBy)?.label || t('sort')
 
   return (
     <div className="flex items-center justify-between px-4 py-2 md:px-6">
       <div className="flex items-center gap-2">
         <SlidersHorizontal className="h-4 w-4 text-[#aaa]" />
-        <span className="text-sm text-[#aaa]">Sắp xếp:</span>
+        <span className="text-sm text-[#aaa]">{t('sort')}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

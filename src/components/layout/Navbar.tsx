@@ -16,8 +16,11 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { useEffect, useState, useRef } from 'react'
+import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 export function Navbar() {
+  const { t } = useI18n()
   const {
     toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery,
     notificationOpen, setNotificationOpen,
@@ -71,7 +74,7 @@ export function Navbar() {
           <Input
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
-            placeholder="Tìm plugin, script, tutorial..."
+            placeholder={t('search')}
             className="h-10 rounded-l-full rounded-r-none border-[#303030] bg-[#121212] text-white placeholder:text-[#888] focus:border-[#3ea6ff] focus-visible:ring-0"
           />
           <Button className="h-10 rounded-r-full rounded-l-none border border-l-0 border-[#303030] bg-[#222] text-[#aaa] hover:bg-[#272727]">
@@ -89,7 +92,7 @@ export function Navbar() {
             size="icon"
             className="hidden text-white hover:bg-[#272727] md:flex"
             onClick={() => setActiveCategory('seller')}
-            title="Đăng sản phẩm"
+            title={t('upload')}
           >
             <Upload className="h-5 w-5" />
           </Button>
@@ -99,10 +102,10 @@ export function Navbar() {
             size="sm"
             className="gap-1.5 rounded-full border border-[#f5a623]/40 bg-[#f5a623]/10 px-3 text-[#f5a623] hover:bg-[#f5a623]/20"
             onClick={() => setSellerApplyModalOpen(true)}
-            title="Đăng ký Seller"
+            title={t('sellerApply')}
           >
             <Store className="h-4 w-4" />
-            <span className="hidden sm:inline text-xs font-medium">Đăng ký Seller</span>
+            <span className="hidden sm:inline text-xs font-medium">{t('sellerApply')}</span>
           </Button>
         ) : null}
         {/* Admin button - only show for admin */}
@@ -124,6 +127,7 @@ export function Navbar() {
         >
           <Video className="h-5 w-5" />
         </Button>
+        <LanguageSwitcher />
         <Button
           variant="ghost"
           size="icon"
@@ -184,7 +188,7 @@ export function Navbar() {
                   onClick={() => setActiveCategory('seller')}
                 >
                   <Package className="h-4 w-4" />
-                  Quản lý sản phẩm
+                  {t('productsManage')}
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem
@@ -192,7 +196,7 @@ export function Navbar() {
                   onClick={() => setSellerApplyModalOpen(true)}
                 >
                   <Store className="h-4 w-4" />
-                  Đăng ký Seller
+                  {t('sellerApply')}
                 </DropdownMenuItem>
               )}
               {(session.user as any).role === 'ADMIN' && (
@@ -208,7 +212,7 @@ export function Navbar() {
                 className="cursor-pointer gap-2 text-[#ccc] focus:bg-[#272727] focus:text-[#f1f1f1]"
               >
                 <Settings className="h-4 w-4" />
-                Cài đặt
+                {t('settings')}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-[#303030]" />
               <DropdownMenuItem
@@ -216,7 +220,7 @@ export function Navbar() {
                 onClick={() => signOut({ callbackUrl: '/' })}
               >
                 <LogOut className="h-4 w-4" />
-                Đăng xuất
+                {t('logout')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -236,7 +240,7 @@ export function Navbar() {
           className="flex items-center gap-2 rounded-full bg-[#f5a623] px-4 text-sm font-semibold text-black hover:bg-[#e09515]"
         >
           <ShoppingCart className="h-4 w-4" />
-          <span className="hidden sm:inline">Giỏ hàng</span>
+          <span className="hidden sm:inline">{t('cart')}</span>
           {totalItems > 0 && (
             <Badge className="h-5 min-w-[20px] rounded-full bg-black px-1.5 text-[10px] font-bold text-[#f5a623]">
               {totalItems}

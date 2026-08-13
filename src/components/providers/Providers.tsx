@@ -2,6 +2,8 @@
 
 import { SessionProvider, useSession } from 'next-auth/react'
 import { useEffect, useRef } from 'react'
+import { I18nProvider } from '@/components/providers/I18nProvider'
+import type { Locale } from '@/i18n/config'
 
 /**
  * Checks seller status from server on first authentication.
@@ -34,11 +36,13 @@ function SessionSyncChecker() {
   return null
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, initialLocale }: { children: React.ReactNode; initialLocale: Locale }) {
   return (
-    <SessionProvider refetchInterval={30} refetchOnWindowFocus={true}>
-      <SessionSyncChecker />
-      {children}
-    </SessionProvider>
+    <I18nProvider initialLocale={initialLocale}>
+      <SessionProvider refetchInterval={30} refetchOnWindowFocus={true}>
+        <SessionSyncChecker />
+        {children}
+      </SessionProvider>
+    </I18nProvider>
   )
 }

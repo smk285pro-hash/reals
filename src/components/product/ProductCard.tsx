@@ -6,6 +6,8 @@ import type { Product } from '@/types'
 import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { HoverPreview } from './HoverPreview'
 import { useState, useRef, useCallback } from 'react'
+import { useI18n } from '@/components/providers/I18nProvider'
+import Link from 'next/link'
 
 function formatViews(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
@@ -43,6 +45,7 @@ function extractYTId(url: string): string | null {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const { t } = useI18n()
   const { setDetailProductId } = useAppStore()
   const { isInWishlist, toggleItem } = useWishlistStore()
   const { addItem: addRecent } = useRecentlyViewedStore()
@@ -86,10 +89,19 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <HoverPreview product={product}>
-      <div
-        className="group relative cursor-pointer"
-        onClick={handleClick}
-      >
+      <div className="group relative">
+        <Link
+          href={`/products/${encodeURIComponent(product.id)}`}
+          className="block cursor-pointer"
+          onClick={(event) => {
+            // Keep the fast modal experience for normal clicks while exposing a
+            // real product URL to crawlers, keyboard users and new-tab actions.
+            if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+              event.preventDefault()
+              handleClick()
+            }
+          }}
+        >
         {/* Thumbnail / Video Preview */}
         <div
           className="relative aspect-video overflow-hidden rounded-xl bg-[#333]"
@@ -144,18 +156,6 @@ export function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
 
-          {/* Wishlist heart button */}
-          <button
-            className={`absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 transition-all hover:scale-110 ${
-              inWishlist ? 'text-red-500' : 'text-white/70 hover:text-white'
-            }`}
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleItem(product)
-            }}
-          >
-            <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-red-500' : ''}`} />
-          </button>
         </div>
 
         {/* Info */}
@@ -183,7 +183,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 <Eye className="h-3 w-3" />
                 {formatViews(product.views)}
               </span>
-              <span className="shrink-0">{product.sales} bán</span>
+              <span className="shrink-0">{t('sales', { count: product.sales })}</span>
             </div>
             {/* Format tag */}
             <span className="mt-1 inline-block rounded border border-[#303030] bg-[#1f1f1f] px-1.5 py-0.5 text-[10px] font-medium text-[#3ea6ff]">
@@ -191,6 +191,17 @@ export function ProductCard({ product }: ProductCardProps) {
             </span>
           </div>
         </div>
+        </Link>
+        <button
+          type="button"
+          aria-label={inWishlist ? `Bỏ ${product.title} khỏi yêu thích` : `Thêm ${product.title} vào yêu thích`}
+          className={`absolute bottom-[78px] left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 transition-all hover:scale-110 ${
+            inWishlist ? 'text-red-500' : 'text-white/70 hover:text-white'
+          }`}
+          onClick={() => toggleItem(product)}
+        >
+          <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-red-500' : ''}`} />
+        </button>
       </div>
     </HoverPreview>
   )

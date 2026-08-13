@@ -1,15 +1,18 @@
 'use client'
 
 import { Clock, Trash2 } from 'lucide-react'
+import { Thumbnail } from '@/components/product/Thumbnail'
 import { useRecentlyViewedStore, useAppStore } from '@/stores'
 import { Button } from '@/components/ui/button'
 import type { Product } from '@/types'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 interface RecentlyViewedProps {
   onProductClick: (product: Product) => void
 }
 
 export function RecentlyViewed({ onProductClick }: RecentlyViewedProps) {
+  const { t } = useI18n()
   const { items, clearAll } = useRecentlyViewedStore()
 
   if (items.length === 0) return null
@@ -19,7 +22,7 @@ export function RecentlyViewed({ onProductClick }: RecentlyViewedProps) {
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[#aaa]">
           <Clock className="h-4 w-4" />
-          <span className="text-sm font-medium">Xem gần đây</span>
+          <span className="text-sm font-medium">{t('recentlyViewed')}</span>
         </div>
         <Button
           variant="ghost"
@@ -28,7 +31,7 @@ export function RecentlyViewed({ onProductClick }: RecentlyViewedProps) {
           onClick={clearAll}
         >
           <Trash2 className="h-3 w-3" />
-          Xóa
+          {t('clear')}
         </Button>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2">
@@ -39,7 +42,7 @@ export function RecentlyViewed({ onProductClick }: RecentlyViewedProps) {
             onClick={() => onProductClick(product)}
           >
             <div className="relative h-20 w-36 overflow-hidden rounded-lg bg-[#333]">
-              <img
+              <Thumbnail
                 src={product.thumbnail}
                 alt={product.title}
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"

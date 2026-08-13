@@ -3,6 +3,7 @@
 import { useAppStore } from '@/stores'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import type { Category } from '@/types'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 const chips = [
   { slug: 'all', name: 'Tất cả' },
@@ -23,17 +24,21 @@ interface CategoryBarProps {
 }
 
 export function CategoryBar({ categories }: CategoryBarProps) {
+  const { t } = useI18n()
   const { activeCategory, setActiveCategory } = useAppStore()
 
   const mergedChips = categories && categories.length > 0
     ? [
-        { slug: 'all', name: 'Tất cả' },
+        { slug: 'all', name: t('all') },
         ...categories.map((c) => ({ slug: c.slug, name: c.name })),
-        { slug: 'free', name: 'Miễn phí' },
-        { slug: 'best-selling', name: 'Bán chạy' },
-        { slug: 'featured', name: 'Nổi bật' },
+        { slug: 'free', name: t('free') },
+        { slug: 'best-selling', name: t('bestSelling') },
+        { slug: 'featured', name: t('featured') },
       ]
-    : chips
+    : chips.map((chip) => ({
+        ...chip,
+        name: chip.slug === 'all' ? t('all') : chip.slug === 'free' ? t('free') : chip.slug === 'best-selling' ? t('bestSelling') : chip.slug === 'featured' ? t('featured') : chip.name,
+      }))
 
   return (
     <div className="sticky top-14 z-40 border-b border-[#303030] bg-[#0f0f0f]">

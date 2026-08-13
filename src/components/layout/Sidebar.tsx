@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 
 const mainLinks = [
@@ -31,6 +32,7 @@ const categoryLinks = [
 ]
 
 export function Sidebar() {
+  const { t } = useI18n()
   const { sidebarOpen, setActiveCategory, activeCategory, setLoginModalOpen, setSidebarOpen, setSellerApplyModalOpen, setNotificationOpen } = useAppStore()
   const wishlistCount = useWishlistStore((s) => s.items.length)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
@@ -77,7 +79,7 @@ export function Sidebar() {
               }}
             >
               <LogIn className="h-4 w-4" />
-              Đăng nhập
+              {t('login')}
             </Button>
           </div>
         )}
@@ -99,7 +101,7 @@ export function Sidebar() {
               }}
             >
               <link.icon className="h-5 w-5" />
-              {link.label}
+              {link.id === 'all' ? t('home') : link.id === 'featured' ? t('featured') : link.id === 'best-selling' ? t('bestSelling') : link.id === 'latest' ? t('latest') : link.id === 'free' ? t('free') : link.label}
             </Button>
           ))}
 
@@ -113,7 +115,7 @@ export function Sidebar() {
           >
             <span className="flex items-center gap-6">
               <Star className="h-5 w-5" />
-              Danh mục
+              {t('categories')}
             </span>
             {categoriesExpanded ? (
               <ChevronUp className="h-4 w-4" />
@@ -156,7 +158,7 @@ export function Sidebar() {
             }}
           >
             <Heart className="h-5 w-5" />
-            Yêu thích
+            {t('wishlist')}
             {wishlistCount > 0 && (
               <span className="ml-auto rounded-full bg-[#ff6b6b] px-2 py-0.5 text-[10px] font-bold text-white">
                 {wishlistCount}
@@ -174,7 +176,7 @@ export function Sidebar() {
               }}
             >
               <Bell className="h-5 w-5" />
-              Thông báo
+              {t('notifications')}
               {unreadCount > 0 && (
                 <span className="ml-auto rounded-full bg-[#f5a623] px-2 py-0.5 text-[10px] font-bold text-black">
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -212,8 +214,8 @@ export function Sidebar() {
               }}
             >
               <Store className="h-5 w-5" />
-              Đăng ký Seller
-              <span className="ml-auto rounded-full bg-[#f5a623] px-1.5 py-0.5 text-[9px] font-bold text-black">MỚI</span>
+              {t('sellerApply')}
+              <span className="ml-auto rounded-full bg-[#f5a623] px-1.5 py-0.5 text-[9px] font-bold text-black">{t('new')}</span>
             </Button>
           ) : null}
 
@@ -222,7 +224,7 @@ export function Sidebar() {
             className="w-full justify-start gap-6 px-3 text-sm text-[#f1f1f1] hover:bg-[#1f1f1f]"
           >
             <Settings className="h-5 w-5" />
-            Cài đặt
+            {t('settings')}
           </Button>
 
           <Button
@@ -230,7 +232,7 @@ export function Sidebar() {
             className="w-full justify-start gap-6 px-3 text-sm text-[#f1f1f1] hover:bg-[#1f1f1f]"
           >
             <HelpCircle className="h-5 w-5" />
-            Trợ giúp
+            {t('help')}
           </Button>
         </div>
 

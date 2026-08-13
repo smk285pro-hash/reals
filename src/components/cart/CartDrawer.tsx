@@ -7,8 +7,10 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 export function CartDrawer() {
+  const { t } = useI18n()
   const { cartDrawerOpen, setCartDrawerOpen, setCheckoutOpen } = useAppStore()
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCartStore()
   const hasFreeItems = items.some((item) => item.product.isFree || item.product.price <= 0)
@@ -29,7 +31,7 @@ export function CartDrawer() {
         <div className="flex items-center justify-between border-b border-[#303030] px-5 py-4">
           <div className="flex items-center gap-3">
             <ShoppingCart className="h-5 w-5 text-[#f5a623]" />
-            <h2 className="text-lg font-semibold text-white">Giỏ hàng</h2>
+            <h2 className="text-lg font-semibold text-white">{t('cart')}</h2>
             <span className="rounded-full bg-[#272727] px-2.5 py-0.5 text-xs text-[#aaa]">
               {items.length}
             </span>
@@ -48,13 +50,13 @@ export function CartDrawer() {
         {items.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-[#888]">
             <ShoppingCart className="h-16 w-16 opacity-30" />
-            <p className="text-sm">Giỏ hàng trống</p>
+            <p className="text-sm">{t('cartEmpty')}</p>
             <Button
               variant="ghost"
               className="text-sm text-[#3ea6ff] hover:text-[#3ea6ff]"
               onClick={() => setCartDrawerOpen(false)}
             >
-              Tiếp tục mua sắm
+              {t('continueShopping')}
             </Button>
           </div>
         ) : (
@@ -122,7 +124,7 @@ export function CartDrawer() {
             {/* Footer */}
             <div className="border-t border-[#303030] p-5">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm text-[#aaa]">Tổng cộng</span>
+                <span className="text-sm text-[#aaa]">{t('total')}</span>
                 <span className="text-xl font-bold text-white">${totalPrice().toFixed(2)}</span>
               </div>
               <Button
@@ -134,14 +136,14 @@ export function CartDrawer() {
                 }}
               >
                 <CreditCard className="h-4 w-4" />
-                {hasFreeItems ? 'Nhận sản phẩm miễn phí' : 'Thanh toán đang tạm khóa'}
+                {hasFreeItems ? t('getFree') : t('paymentLocked')}
               </Button>
               <Button
                 variant="ghost"
                 className="mt-2 w-full text-sm text-red-400 hover:bg-[#1a1111] hover:text-red-300"
                 onClick={clearCart}
               >
-                Xóa tất cả
+                {t('clearAll')}
               </Button>
             </div>
           </>

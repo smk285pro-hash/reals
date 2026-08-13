@@ -1,8 +1,10 @@
 'use client'
 
 import { Github, Twitter, Youtube, Mail } from 'lucide-react'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 export function Footer() {
+  const { t } = useI18n()
   return (
     <footer className="mt-auto border-t border-[#303030] bg-[#0f0f0f] px-4 py-8 md:px-6">
       <div className="mx-auto max-w-[1400px]">
@@ -13,38 +15,37 @@ export function Footer() {
               Real<span className="text-[#f5a623]">S</span>
             </h3>
             <p className="text-sm leading-relaxed text-[#888]">
-              Marketplace #1 cho plugin, script và extension dành cho REAPER DAW.
-              Chất lượng cao, giá hợp lý.
+              {t('marketplaceAbout')}
             </p>
           </div>
 
           {/* Links */}
           <div>
-            <h4 className="mb-3 text-sm font-semibold text-[#f1f1f1]">Marketplace</h4>
+            <h4 className="mb-3 text-sm font-semibold text-[#f1f1f1]">{t('marketplace')}</h4>
             <ul className="space-y-2 text-sm text-[#888]">
-              <li><a href="#" className="hover:text-white">Tất cả sản phẩm</a></li>
-              <li><a href="#" className="hover:text-white">Miễn phí</a></li>
-              <li><a href="#" className="hover:text-white">Bán chạy</a></li>
-              <li><a href="#" className="hover:text-white">Mới nhất</a></li>
+              <li><a href="#" className="hover:text-white">{t('allProducts')}</a></li>
+              <li><a href="#" className="hover:text-white">{t('free')}</a></li>
+              <li><a href="#" className="hover:text-white">{t('bestSelling')}</a></li>
+              <li><a href="#" className="hover:text-white">{t('latest')}</a></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="mb-3 text-sm font-semibold text-[#f1f1f1]">Hỗ trợ</h4>
+            <h4 className="mb-3 text-sm font-semibold text-[#f1f1f1]">{t('support')}</h4>
             <ul className="space-y-2 text-sm text-[#888]">
-              <li><a href="#" className="hover:text-white">Hướng dẫn cài đặt</a></li>
+              <li><a href="#" className="hover:text-white">{t('installGuide')}</a></li>
               <li><a href="#" className="hover:text-white">FAQ</a></li>
-              <li><a href="#" className="hover:text-white">Liên hệ</a></li>
-              <li><a href="#" className="hover:text-white">Chính sách hoàn tiền</a></li>
+              <li><a href="#" className="hover:text-white">{t('contact')}</a></li>
+              <li><a href="#" className="hover:text-white">{t('refundPolicy')}</a></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="mb-3 text-sm font-semibold text-[#f1f1f1]">For Sellers</h4>
+            <h4 className="mb-3 text-sm font-semibold text-[#f1f1f1]">{t('forSellers')}</h4>
             <ul className="space-y-2 text-sm text-[#888]">
-              <li><a href="#" className="hover:text-white">Đăng bán sản phẩm</a></li>
+              <li><a href="#" className="hover:text-white">{t('sellProduct')}</a></li>
               <li><a href="#" className="hover:text-white">Seller Dashboard</a></li>
-              <li><a href="#" className="hover:text-white">Hướng dẫn phát triển</a></li>
+              <li><a href="#" className="hover:text-white">{t('developerGuide')}</a></li>
               <li><a href="#" className="hover:text-white">API Documentation</a></li>
             </ul>
           </div>
@@ -53,7 +54,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-[#303030] pt-6 md:flex-row">
           <p className="text-xs text-[#666]">
-            © 2025 RealS. All rights reserved.
+            © 2025 RealS. {t('rights')}
           </p>
           <div className="flex gap-4">
             <a href="#" className="text-[#888] hover:text-white">

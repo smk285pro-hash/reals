@@ -27,8 +27,10 @@ import type { Product, Category } from '@/types'
 import { Search, PackageOpen, Heart } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { AnalyticsTracker } from '@/components/analytics/AnalyticsTracker'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 export default function HomePage() {
+  const { t } = useI18n()
   const {
     activeCategory, searchQuery, sortBy, detailProductId, setDetailProductId,
     loginModalOpen, setLoginModalOpen,
@@ -174,15 +176,15 @@ export default function HomePage() {
                   <div className="flex items-center gap-2">
                     <Heart className="h-4 w-4 text-red-400" />
                     <span className="text-sm font-medium text-[#f1f1f1]">
-                      Yêu thích ({wishlistItems.length})
+                      {t('wishlist')} ({wishlistItems.length})
                     </span>
                   </div>
                 ) : !loading ? (
                   <p className="text-xs text-[#888]">
                     {total > 0
-                      ? `${total} sản phẩm ${searchQuery ? `cho "${searchQuery}"` : ''}`
+                      ? searchQuery ? t('productsFor', { count: total, query: searchQuery }) : t('products', { count: total })
                       : searchQuery
-                        ? `Không tìm thấy kết quả cho "${searchQuery}"`
+                        ? t('noResultsFor', { query: searchQuery })
                         : ''}
                   </p>
                 ) : null}
@@ -217,19 +219,19 @@ export default function HomePage() {
                     {activeCategory === 'wishlist' ? (
                       <>
                         <Heart className="h-16 w-16 opacity-30" />
-                        <p className="text-lg font-medium">Chưa có sản phẩm yêu thích</p>
-                        <p className="text-sm">Bấm tim ❤️ trên sản phẩm để thêm vào danh sách</p>
+                        <p className="text-lg font-medium">{t('noFavorites')}</p>
+                        <p className="text-sm">{t('favoriteHint')}</p>
                       </>
                     ) : searchQuery ? (
                       <>
                         <Search className="h-16 w-16 opacity-30" />
-                        <p className="text-lg font-medium">Không tìm thấy kết quả</p>
-                        <p className="text-sm">Thử tìm với từ khóa khác hoặc duyệt danh mục</p>
+                        <p className="text-lg font-medium">{t('noResults')}</p>
+                        <p className="text-sm">{t('searchHint')}</p>
                       </>
                     ) : (
                       <>
                         <PackageOpen className="h-16 w-16 opacity-30" />
-                        <p className="text-lg font-medium">Chưa có sản phẩm</p>
+                        <p className="text-lg font-medium">{t('noProducts')}</p>
                       </>
                     )}
                   </div>

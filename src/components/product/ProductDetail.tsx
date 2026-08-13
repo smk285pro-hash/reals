@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { Thumbnail } from '@/components/product/Thumbnail'
+import { useI18n } from '@/components/providers/I18nProvider'
 import { useAppStore, useCartStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -66,6 +67,7 @@ interface ProductDetailProps {
 }
 
 export function ProductDetail({ product }: ProductDetailProps) {
+  const { t } = useI18n()
   const { setDetailProductId, setLoginModalOpen, setCartDrawerOpen } = useAppStore()
   const { addItem, isInCart } = useCartStore()
   const { isInWishlist, toggleItem } = useWishlistStore()
@@ -188,7 +190,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
     .toUpperCase() || 'RF'
 
   const handleShare = async () => {
-    const url = `${window.location.origin}?product=${product.id}`
+    const url = `${window.location.origin}/products/${encodeURIComponent(product.id)}`
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -203,11 +205,11 @@ export function ProductDetail({ product }: ProductDetailProps) {
       />
 
       {/* Modal */}
-      <div className="fixed inset-4 z-50 flex items-center justify-center sm:inset-8 md:inset-16">
-        <div className="flex max-h-[90vh] w-full max-w-[900px] flex-col overflow-hidden rounded-2xl border border-[#303030] bg-[#0f0f0f] shadow-2xl md:flex-row">
+      <div className="fixed inset-2 z-50 flex items-center justify-center sm:inset-3 md:inset-4">
+        <div className="flex h-[94vh] max-h-[94vh] w-full max-w-[1600px] flex-col overflow-hidden rounded-2xl border border-[#303030] bg-black shadow-2xl md:flex-row">
           {/* Left - Video/Image */}
           <div
-            className="relative aspect-video w-full shrink-0 bg-black md:aspect-auto md:h-auto md:w-[55%]"
+            className="relative aspect-video w-full shrink-0 self-start bg-black md:w-[min(70%,167.111vh)] md:self-center"
           >
             {ytVideoId ? (
               // YouTube video: auto-play, fully chromeless — no YouTube UI ever shown
@@ -250,7 +252,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
               <Thumbnail
                 src={product.thumbnail}
                 alt={product.title}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
               />
             )}
             {product.duration && !ytVideoId && (
@@ -271,7 +273,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
           </div>
 
           {/* Right - Info */}
-          <div className="flex flex-1 flex-col overflow-y-auto">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#0f0f0f]">
             {/* Close button */}
             <div className="flex justify-end p-3">
               <Button
@@ -301,9 +303,9 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     <BadgeCheck className="h-4 w-4 text-[#3ea6ff]" />
                   </div>
                   <div className="flex items-center gap-2 text-xs text-[#aaa]">
-                    <span>{formatViews(product.views)} views</span>
+                    <span>{t('views', { count: formatViews(product.views) })}</span>
                     <span>•</span>
-                    <span>{product.sales} đã bán</span>
+                    <span>{t('sales', { count: product.sales })}</span>
                   </div>
                 </div>
               </div>
@@ -345,7 +347,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
               {/* Description */}
               <div>
-                <h3 className="mb-2 text-sm font-semibold text-[#f1f1f1]">Mô tả</h3>
+                <h3 className="mb-2 text-sm font-semibold text-[#f1f1f1]">{t('description')}</h3>
                 <p className="text-sm leading-relaxed text-[#ccc]">
                   {product.description}
                 </p>
@@ -356,9 +358,9 @@ export function ProductDetail({ product }: ProductDetailProps) {
               {/* Price & Buy */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#aaa]">Giá</span>
+                  <span className="text-sm text-[#aaa]">{t('price')}</span>
                   <span className={`text-2xl font-bold ${isFreeProduct ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
-                    {isFreeProduct ? 'MIỄN PHÍ' : `$${product.price}`}
+                    {isFreeProduct ? t('free').toUpperCase() : `$${product.price}`}
                   </span>
                 </div>
 
@@ -374,7 +376,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     ) : (
                       <Download className="h-4 w-4" />
                     )}
-                    {downloading ? 'Đang tải...' : 'Tải miễn phí'}
+                    {downloading ? t('downloading') : t('downloadFree')}
                   </Button>
                 ) : ownsProduct ? (
                   /* PAID product — already purchased → show Download button */
@@ -400,7 +402,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     className="w-full gap-2 rounded-lg bg-[#272727] py-3 text-sm font-semibold text-[#888] disabled:opacity-100"
                   >
                     <Lock className="h-4 w-4" />
-                    Sắp mở bán
+                    {t('comingSoon')}
                   </Button>
                 )}
 
@@ -432,7 +434,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                   onClick={() => toggleItem(product)}
                 >
                   <Heart className={`h-5 w-5 ${inWishlist ? 'fill-red-400' : ''}`} />
-                  {inWishlist ? 'Đã thích' : 'Yêu thích'}
+                  {inWishlist ? t('liked') : t('favorite')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -440,14 +442,14 @@ export function ProductDetail({ product }: ProductDetailProps) {
                   onClick={handleShare}
                 >
                   {copied ? <Check className="h-5 w-5 text-[#3fb950]" /> : <Copy className="h-5 w-5" />}
-                  {copied ? 'Đã copy!' : 'Copy link'}
+                  {copied ? t('copied') : t('copyLink')}
                 </Button>
                 <Button
                   variant="ghost"
                   className="flex flex-col items-center gap-1 text-xs text-[#aaa] hover:bg-[#1f1f1f] hover:text-white"
                 >
                   <Flag className="h-5 w-5" />
-                  Báo cáo
+                  {t('report')}
                 </Button>
               </div>
             </div>
