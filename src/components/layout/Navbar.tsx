@@ -19,9 +19,10 @@ import { useEffect, useState, useRef } from 'react'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { useI18n } from '@/components/providers/I18nProvider'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export function Navbar() {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const {
     toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery,
     notificationOpen, setNotificationOpen,
@@ -64,7 +65,16 @@ export function Navbar() {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <a href="#" className="flex items-center gap-2 text-xl font-bold tracking-tight text-white" aria-label="RealS">
+        <Link
+          href={`/${locale}`}
+          className="flex items-center gap-2 text-xl font-bold tracking-tight text-white"
+          aria-label={`${t('home')} — RealS`}
+          onClick={() => {
+            setActiveCategory('all')
+            setSearchQuery('')
+            setLocalSearch('')
+          }}
+        >
           <Image
             src="/reals-mark.png"
             alt=""
@@ -74,7 +84,7 @@ export function Navbar() {
             priority
           />
           Real<span className="text-[#f5a623]">S</span>
-        </a>
+        </Link>
       </div>
 
       {/* Center - Search */}
