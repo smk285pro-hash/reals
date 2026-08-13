@@ -15,10 +15,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { useI18n } from '@/components/providers/I18nProvider'
-import Image from 'next/image'
 import Link from 'next/link'
 
 export function Navbar() {
@@ -56,18 +55,19 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-[#303030] bg-[#0f0f0f] px-3 md:gap-4 md:px-6">
       {/* Left */}
-      <div className="flex shrink-0 items-center gap-2 md:gap-4">
+      <div className="flex shrink-0 items-center gap-2.5 md:gap-3">
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-[#272727]"
+          className="h-9 w-9 rounded-full text-[#d9d9d9] hover:bg-[#272727] hover:text-white"
           onClick={toggleSidebar}
+          aria-label={t('categories')}
         >
           <Menu className="h-5 w-5" />
         </Button>
         <Link
           href={`/${locale}`}
-          className="flex items-center gap-2 text-xl font-bold tracking-tight text-white"
+          className="group flex h-10 items-center gap-2 rounded-lg px-1 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8f93a]/70"
           aria-label={`${t('home')} — RealS`}
           onClick={() => {
             setActiveCategory('all')
@@ -75,15 +75,13 @@ export function Navbar() {
             setLocalSearch('')
           }}
         >
-          <Image
-            src="/reals-mark.png"
-            alt=""
-            width={38}
-            height={18}
-            className="h-[18px] w-[38px] shrink-0 object-contain"
-            priority
+          <span
+            aria-hidden="true"
+            className="h-[22px] w-[45px] shrink-0 bg-[#c8f93a] [mask:url('/reals-mark.svg')_center/contain_no-repeat]"
           />
-          Real<span className="text-[#f5a623]">S</span>
+          <span className="text-[20px] font-bold leading-none tracking-[-0.035em] text-white">
+            Real<span className="text-[#c8f93a]">S</span>
+          </span>
         </Link>
       </div>
 
