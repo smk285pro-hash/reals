@@ -18,6 +18,7 @@ import {
 import { useEffect, useState, useRef } from 'react'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { useI18n } from '@/components/providers/I18nProvider'
+import Image from 'next/image'
 
 export function Navbar() {
   const { t } = useI18n()
@@ -63,7 +64,15 @@ export function Navbar() {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <a href="#" className="flex items-center gap-1 text-xl font-bold tracking-tight text-white">
+        <a href="#" className="flex items-center gap-2 text-xl font-bold tracking-tight text-white" aria-label="RealS">
+          <Image
+            src="/reals-mark.png"
+            alt=""
+            width={38}
+            height={18}
+            className="h-[18px] w-[38px] shrink-0 object-contain"
+            priority
+          />
           Real<span className="text-[#f5a623]">S</span>
         </a>
       </div>
