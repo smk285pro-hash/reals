@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     // 'all' = no filter
 
     const dateFilter = since ? { createdAt: { gte: since } } : {}
+    const sessionDateFilter = since ? { startedAt: { gte: since } } : {}
 
     // Parallel queries for performance
     const [
@@ -46,6 +47,7 @@ export async function GET(req: NextRequest) {
       trafficByReferrer,
       dailyTraffic,
       visitorEvents,
+      trackedSessions,
     ] = await Promise.all([
       // Users by role
       db.user.groupBy({ by: ['role'], _count: true }),
@@ -128,7 +130,53 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         take: 5000,
       }),
+      db.analyticsSession.findMany({
+        where: sessionDateFilter,
+        select: {
+          sessionId: true, visitorId: true, userId: true, startedAt: true, lastSeenAt: true, endedAt: true,
+          activeSeconds: true, pageViews: true, interactionCount: true, entryPath: true, exitPath: true,
+          country: true, device: true, browser: true, isBot: true, botReason: true, isInternal: true,
+          user: { select: { name: true, email: true } },
+        },
+        orderBy: { lastSeenAt: 'desc' },
+        take: 5000,
+      }),
     ])
+
+    const onlineCutoff = now.getTime() - 60_000
+    const humanSessions = trackedSessions.filter(item => !item.isBot && !item.isInternal)
+    const botSessions = trackedSessions.filter(item => item.isBot)
+    const internalSessions = trackedSessions.filter(item => item.isInternal && !item.isBot)
+    const humanVisitorKeys = new Set(humanSessions.map(item => item.userId ? `user:${item.userId}` : `visitor:${item.visitorId}`))
+    const returningVisitorKeys = new Set<string>()
+    const visitorSessionCounts = new Map<string, number>()
+    for (const item of humanSessions) {
+      const key = item.userId ? `user:${item.userId}` : `visitor:${item.visitorId}`
+      const count = (visitorSessionCounts.get(key) || 0) + 1
+      visitorSessionCounts.set(key, count)
+      if (count > 1) returningVisitorKeys.add(key)
+    }
+    const bouncedSessions = humanSessions.filter(item => item.activeSeconds < 10 && item.pageViews <= 1 && item.interactionCount === 0)
+    const totalActiveSeconds = humanSessions.reduce((sum, item) => sum + item.activeSeconds, 0)
+    const sessionSummary = {
+      humanVisitors: humanVisitorKeys.size,
+      humanSessions: humanSessions.length,
+      botSessions: botSessions.length,
+      internalSessions: internalSessions.length,
+      onlineNow: humanSessions.filter(item => item.lastSeenAt.getTime() >= onlineCutoff).length,
+      bounceRate: humanSessions.length ? Math.round((bouncedSessions.length / humanSessions.length) * 1000) / 10 : 0,
+      averageActiveSeconds: humanSessions.length ? Math.round(totalActiveSeconds / humanSessions.length) : 0,
+      returningVisitors: returningVisitorKeys.size,
+      newVisitors: Math.max(0, humanVisitorKeys.size - returningVisitorKeys.size),
+    }
+
+    const recentSessions = trackedSessions.slice(0, 100).map(item => ({
+      ...item,
+      isOnline: !item.isBot && item.lastSeenAt.getTime() >= onlineCutoff,
+      bounced: !item.isBot && !item.isInternal && item.activeSeconds < 10 && item.pageViews <= 1 && item.interactionCount === 0,
+      durationSeconds: item.activeSeconds,
+      visitorType: item.isBot ? 'BOT' : item.isInternal ? 'INTERNAL' : item.userId ? 'ACCOUNT' : 'ANONYMOUS',
+    }))
 
     const visitorMap = new Map<string, any>()
     for (const event of visitorEvents) {
@@ -220,6 +268,8 @@ export async function GET(req: NextRequest) {
         }, {}),
         visitors,
         securityAlerts,
+        sessionSummary,
+        recentSessions,
       },
     })
   } catch (error: any) {

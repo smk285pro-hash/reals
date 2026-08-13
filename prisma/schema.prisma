@@ -29,6 +29,7 @@ model User {
   notifications        Notification[]
   purchases            Purchase[]
   analyticsEvents      AnalyticsEvent[]
+  analyticsSessions    AnalyticsSession[]
 }
 
 model Account {
@@ -108,6 +109,8 @@ model AnalyticsEvent {
   id         String   @id @default(cuid())
   eventType  String   // PAGE_VIEW or PRODUCT_VIEW
   visitorId  String
+  sessionId  String?
+  session    AnalyticsSession? @relation(fields: [sessionId], references: [sessionId], onDelete: SetNull)
   path       String
   productId  String?
   product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -116,6 +119,8 @@ model AnalyticsEvent {
   device     String?
   browser    String?
   country    String?
+  ipHash     String?
+  ipMasked   String?
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt  DateTime @default(now())
@@ -124,6 +129,40 @@ model AnalyticsEvent {
   @@index([eventType, createdAt])
   @@index([productId, createdAt])
   @@index([visitorId, createdAt])
+  @@index([ipHash, createdAt])
+  @@index([sessionId, createdAt])
+}
+
+model AnalyticsSession {
+  id               String   @id @default(cuid())
+  sessionId        String   @unique
+  visitorId        String
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  startedAt        DateTime @default(now())
+  lastSeenAt       DateTime @default(now())
+  endedAt          DateTime?
+  activeSeconds    Int      @default(0)
+  pageViews        Int      @default(0)
+  interactionCount Int      @default(0)
+  entryPath        String
+  exitPath         String
+  referrer         String?
+  userAgent        String?
+  device           String?
+  browser          String?
+  country          String?
+  isBot            Boolean  @default(false)
+  botReason        String?
+  isInternal       Boolean  @default(false)
+  events           AnalyticsEvent[]
+
+  @@index([startedAt])
+  @@index([lastSeenAt])
+  @@index([visitorId, startedAt])
+  @@index([userId, startedAt])
+  @@index([isBot, startedAt])
+  @@index([isInternal, startedAt])
 }
 
 model ProductFile {

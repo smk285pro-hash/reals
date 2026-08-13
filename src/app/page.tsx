@@ -26,7 +26,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { Product, Category } from '@/types'
 import { Search, PackageOpen, Heart } from 'lucide-react'
 import { Toaster } from 'sonner'
-import { AnalyticsTracker } from '@/components/analytics/AnalyticsTracker'
 import { useI18n } from '@/components/providers/I18nProvider'
 
 export default function HomePage() {
@@ -107,7 +106,6 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-[#0f0f0f] text-[#f1f1f1]">
       <Toaster theme="dark" position="bottom-right" richColors />
-      <AnalyticsTracker />
       <Navbar />
       {!isSellerView && !isAdminView && <CategoryBar categories={categories} />}
       <Sidebar />

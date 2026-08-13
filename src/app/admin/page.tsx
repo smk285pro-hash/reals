@@ -7,7 +7,7 @@ import {
   Search, ArrowLeft, Shield, Eye, EyeOff,
   Star, Trash2, UserCheck, TrendingUp, AlertCircle,
   Flag, BarChart3, Ban, MessageSquare, ExternalLink,
-  ChevronDown, AlertTriangle, FileWarning, ClipboardList, Send, Monitor, Globe2, Activity, Database, HardDrive, Zap
+  ChevronDown, AlertTriangle, FileWarning, ClipboardList, Send, Monitor, Globe2, Activity, Database, HardDrive, Zap, Timer, Radio, Bot
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -91,6 +91,41 @@ interface AnalyticsData {
       recentEvents: { eventType: string; path: string; createdAt: string }[]
     }[]
     securityAlerts: { type: string; severity: string; visitorId: string; title: string; createdAt: string }[]
+    sessionSummary: {
+      humanVisitors: number
+      humanSessions: number
+      botSessions: number
+      internalSessions: number
+      onlineNow: number
+      bounceRate: number
+      averageActiveSeconds: number
+      returningVisitors: number
+      newVisitors: number
+    }
+    recentSessions: {
+      sessionId: string
+      visitorId: string
+      userId: string | null
+      user: { name: string | null; email: string } | null
+      startedAt: string
+      lastSeenAt: string
+      endedAt: string | null
+      activeSeconds: number
+      durationSeconds: number
+      pageViews: number
+      interactionCount: number
+      entryPath: string
+      exitPath: string
+      country: string | null
+      device: string | null
+      browser: string | null
+      isBot: boolean
+      botReason: string | null
+      isInternal: boolean
+      isOnline: boolean
+      bounced: boolean
+      visitorType: 'BOT' | 'INTERNAL' | 'ACCOUNT' | 'ANONYMOUS'
+    }[]
   }
 }
 
@@ -120,6 +155,15 @@ function StatCard({ icon: Icon, label, value, color }: any) {
       </div>
     </div>
   )
+}
+
+function formatDuration(totalSeconds: number) {
+  if (totalSeconds < 60) return `${totalSeconds} giây`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes < 60) return `${minutes} phút ${seconds ? `${seconds} giây` : ''}`.trim()
+  const hours = Math.floor(minutes / 60)
+  return `${hours} giờ ${minutes % 60} phút`
 }
 
 const tabLabels: Record<Tab, string> = {
@@ -768,11 +812,70 @@ export default function AdminDashboard() {
 
                 {/* First-party traffic metrics */}
                 <div>
-                  <h3 className="mb-3 text-sm font-semibold text-white">Lưu lượng website</h3>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <StatCard icon={Eye} label="Lượt truy cập trang" value={analytics.traffic.pageViews} color="bg-[#3ea6ff]/20 text-[#3ea6ff]" />
-                    <StatCard icon={Users} label="Người dùng duy nhất" value={analytics.traffic.uniqueVisitors} color="bg-[#f5a623]/20 text-[#f5a623]" />
-                    <StatCard icon={Package} label="Lượt xem sản phẩm" value={analytics.traffic.productViews} color="bg-[#a855f7]/20 text-[#a855f7]" />
+                  <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">Lưu lượng người thật</h3>
+                      <p className="mt-1 text-xs text-[#888]">Bot và trình duyệt kiểm thử được tách riêng, không tính vào khách thật.</p>
+                    </div>
+                    <Badge variant="outline" className="border-[#3fb950]/30 text-[#3fb950]">{analytics.traffic.sessionSummary.onlineNow} đang online</Badge>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <StatCard icon={Users} label="Khách thật" value={analytics.traffic.sessionSummary.humanVisitors} color="bg-[#3ea6ff]/20 text-[#3ea6ff]" />
+                    <StatCard icon={Radio} label="Đang online" value={analytics.traffic.sessionSummary.onlineNow} color="bg-[#3fb950]/20 text-[#3fb950]" />
+                    <StatCard icon={Timer} label="Thời gian trung bình" value={formatDuration(analytics.traffic.sessionSummary.averageActiveSeconds)} color="bg-[#a855f7]/20 text-[#a855f7]" />
+                    <StatCard icon={Bot} label="Bot / kiểm thử" value={analytics.traffic.sessionSummary.botSessions} color="bg-red-500/20 text-red-400" />
+                  </div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <StatCard icon={Activity} label="Phiên truy cập thật" value={analytics.traffic.sessionSummary.humanSessions} color="bg-cyan-500/20 text-cyan-400" />
+                    <StatCard icon={Zap} label="Tỷ lệ thoát nhanh" value={`${analytics.traffic.sessionSummary.bounceRate}%`} color="bg-yellow-500/20 text-yellow-400" />
+                    <StatCard icon={UserCheck} label="Khách mới" value={analytics.traffic.sessionSummary.newVisitors} color="bg-blue-500/20 text-blue-400" />
+                    <StatCard icon={TrendingUp} label="Khách quay lại" value={analytics.traffic.sessionSummary.returningVisitors} color="bg-[#f5a623]/20 text-[#f5a623]" />
+                  </div>
+                  <p className="mt-3 text-xs text-[#777]">Đã loại khỏi khách thật: {analytics.traffic.sessionSummary.internalSessions} phiên quản trị/nội bộ và {analytics.traffic.sessionSummary.botSessions} phiên bot/kiểm thử.</p>
+                </div>
+
+                {/* Session-level engagement */}
+                <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">Phiên truy cập gần đây</h3>
+                      <p className="mt-1 text-xs text-[#888]">Thời gian chỉ tính lúc tab đang mở và hoạt động; online nếu có heartbeat trong 60 giây.</p>
+                    </div>
+                    <Badge variant="outline" className="border-[#3ea6ff]/30 text-[#3ea6ff]">{analytics.traffic.recentSessions.length} phiên</Badge>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[1100px] text-left text-xs">
+                      <thead className="border-b border-[#303030] text-[#888]">
+                        <tr>
+                          <th className="px-2 py-2 font-medium">Khách / trạng thái</th>
+                          <th className="px-2 py-2 font-medium">Thời gian hoạt động</th>
+                          <th className="px-2 py-2 font-medium">Tương tác</th>
+                          <th className="px-2 py-2 font-medium">Trang vào → trang ra</th>
+                          <th className="px-2 py-2 font-medium">Thiết bị</th>
+                          <th className="px-2 py-2 font-medium">Bắt đầu / gần nhất</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.traffic.recentSessions.map(item => (
+                          <tr key={item.sessionId} className={`border-b border-[#252525] ${item.isBot ? 'bg-red-500/[0.03] text-[#999]' : 'text-[#ccc]'}`}>
+                            <td className="px-2 py-3">
+                              <p className="max-w-[210px] truncate font-medium text-[#f1f1f1]">{item.user ? item.user.name || item.user.email : `Visitor ${item.visitorId.slice(0, 8)}…`}</p>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {item.isBot ? <Badge className="bg-red-500/15 text-red-400">Bot / kiểm thử</Badge> : item.isInternal ? <Badge className="bg-purple-500/15 text-purple-400">Nội bộ / quản trị</Badge> : item.isOnline ? <Badge className="bg-[#3fb950]/15 text-[#3fb950]">Đang online</Badge> : item.bounced ? <Badge className="bg-yellow-500/15 text-yellow-400">Thoát nhanh</Badge> : <Badge variant="outline" className="border-[#303030] text-[#aaa]">Đã rời đi</Badge>}
+                                {!item.isBot && item.userId && <Badge className="bg-[#3ea6ff]/15 text-[#3ea6ff]">Đã đăng nhập</Badge>}
+                              </div>
+                              {item.botReason && <p className="mt-1 text-[10px] text-red-400">{item.botReason}</p>}
+                            </td>
+                            <td className="px-2 py-3"><p className="font-bold text-white">{formatDuration(item.durationSeconds)}</p><p className="mt-1 text-[#777]">{item.pageViews} trang</p></td>
+                            <td className="px-2 py-3"><p>{item.interactionCount} thao tác</p><p className="mt-1 text-[#777]">{item.country || 'N/A'}</p></td>
+                            <td className="px-2 py-3"><p className="max-w-[240px] truncate text-[#f1f1f1]">{item.entryPath}</p><p className="mt-1 max-w-[240px] truncate text-[#777]">→ {item.exitPath}</p></td>
+                            <td className="px-2 py-3"><p>{item.device || 'Không rõ'}</p><p className="mt-1 text-[#777]">{item.browser || 'Không rõ'}</p></td>
+                            <td className="px-2 py-3"><p>{new Date(item.startedAt).toLocaleString('vi-VN')}</p><p className="mt-1 text-[#777]">{new Date(item.lastSeenAt).toLocaleString('vi-VN')}</p></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {analytics.traffic.recentSessions.length === 0 && <p className="py-8 text-center text-xs text-[#888]">Dữ liệu phiên sẽ xuất hiện từ lượt truy cập tiếp theo.</p>}
                   </div>
                 </div>
 
@@ -848,10 +951,10 @@ export default function AdminDashboard() {
                 <div className="rounded-xl border border-[#303030] bg-[#1a1a1a] p-4">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <h3 className="text-sm font-semibold text-white">Khách truy cập gần đây</h3>
-                      <p className="mt-1 text-xs text-[#888]">Nhóm theo mã trình duyệt ẩn danh; tài khoản chỉ hiện khi khách đã đăng nhập.</p>
+                      <h3 className="text-sm font-semibold text-white">Dữ liệu trình duyệt cũ</h3>
+                      <p className="mt-1 text-xs text-[#888]">Dữ liệu trước khi có hệ thống phiên; một người có thể xuất hiện bằng nhiều mã. Hãy ưu tiên bảng phiên truy cập phía trên.</p>
                     </div>
-                    <Badge variant="outline" className="border-[#3ea6ff]/30 text-[#3ea6ff]">{analytics.traffic.visitors.length} visitor</Badge>
+                    <Badge variant="outline" className="border-[#666]/40 text-[#888]">{analytics.traffic.visitors.length} mã cũ</Badge>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[920px] text-left text-xs">

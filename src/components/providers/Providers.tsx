@@ -3,6 +3,7 @@
 import { SessionProvider, useSession } from 'next-auth/react'
 import { useEffect, useRef } from 'react'
 import { I18nProvider } from '@/components/providers/I18nProvider'
+import { AnalyticsTracker } from '@/components/analytics/AnalyticsTracker'
 import type { Locale } from '@/i18n/config'
 
 /**
@@ -41,6 +42,7 @@ export function Providers({ children, initialLocale }: { children: React.ReactNo
     <I18nProvider initialLocale={initialLocale}>
       <SessionProvider refetchInterval={30} refetchOnWindowFocus={true}>
         <SessionSyncChecker />
+        <AnalyticsTracker />
         {children}
       </SessionProvider>
     </I18nProvider>
