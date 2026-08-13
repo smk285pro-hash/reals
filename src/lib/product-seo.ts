@@ -1,7 +1,9 @@
 import { cache } from 'react'
 import { db } from '@/lib/db'
+import type { Locale } from '@/i18n/config'
+import { localizedUrl, siteUrl } from '@/i18n/seo'
 
-export const siteUrl = 'https://reals.media'
+export { siteUrl }
 
 export const getPublishedProduct = cache(async (id: string) => {
   try {
@@ -22,9 +24,17 @@ export const getPublishedProduct = cache(async (id: string) => {
           },
         },
         reviews: {
-          select: { rating: true },
+          select: {
+            rating: true,
+            comment: true,
+            createdAt: true,
+            user: { select: { name: true } },
+          },
           orderBy: { createdAt: 'desc' },
           take: 10,
+        },
+        _count: {
+          select: { reviews: true },
         },
       },
     })
@@ -36,6 +46,10 @@ export const getPublishedProduct = cache(async (id: string) => {
 
 export function productUrl(id: string) {
   return `${siteUrl}/products/${encodeURIComponent(id)}`
+}
+
+export function localizedProductUrl(locale: Locale, id: string) {
+  return localizedUrl(locale, `/products/${encodeURIComponent(id)}`)
 }
 
 export function absoluteAssetUrl(value: string | null | undefined) {

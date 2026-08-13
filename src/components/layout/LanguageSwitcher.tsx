@@ -1,14 +1,25 @@
 'use client'
 
 import { Check, Languages } from 'lucide-react'
-import { localeOptions } from '@/i18n/config'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { localeOptions, localizePathname } from '@/i18n/config'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 export function LanguageSwitcher() {
   const { locale, setLocale, t } = useI18n()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const current = localeOptions.find((option) => option.code === locale) || localeOptions[1]
+
+  const changeLocale = (nextLocale: typeof locale) => {
+    setLocale(nextLocale)
+    const localizedPath = localizePathname(pathname, nextLocale)
+    const query = searchParams.toString()
+    router.push(query ? `${localizedPath}?${query}` : localizedPath)
+  }
 
   return (
     <DropdownMenu>
@@ -23,7 +34,7 @@ export function LanguageSwitcher() {
           <DropdownMenuItem
             key={option.code}
             className="cursor-pointer gap-3 focus:bg-[#272727] focus:text-white"
-            onClick={() => setLocale(option.code)}
+            onClick={() => changeLocale(option.code)}
           >
             <span className="text-lg">{option.flag}</span>
             <span className="flex-1">{option.label}</span>

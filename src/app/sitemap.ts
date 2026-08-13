@@ -1,24 +1,29 @@
 import type { MetadataRoute } from 'next'
 import { db } from '@/lib/db'
-import { productUrl, siteUrl } from '@/lib/product-seo'
+import { locales } from '@/i18n/config'
+import { languageAlternates, localizedUrl } from '@/i18n/seo'
+import { localizedProductUrl } from '@/lib/product-seo'
 
 export const revalidate = 300
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const routes: MetadataRoute.Sitemap = [
+  const now = new Date()
+  const routes: MetadataRoute.Sitemap = locales.flatMap((locale) => [
     {
-      url: siteUrl,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
+      url: localizedUrl(locale),
+      lastModified: now,
+      changeFrequency: 'daily' as const,
       priority: 1,
+      alternates: { languages: languageAlternates('/') },
     },
     {
-      url: `${siteUrl}/products`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
+      url: localizedUrl(locale, '/products'),
+      lastModified: now,
+      changeFrequency: 'daily' as const,
       priority: 0.9,
+      alternates: { languages: languageAlternates('/products') },
     },
-  ]
+  ])
 
   try {
     const products = await db.product.findMany({
@@ -33,12 +38,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       orderBy: { updatedAt: 'desc' },
     })
 
-    routes.push(...products.map((product) => ({
-      url: productUrl(product.id),
+    routes.push(...products.flatMap((product) => locales.map((locale) => ({
+      url: localizedProductUrl(locale, product.id),
       lastModified: product.updatedAt,
       changeFrequency: 'weekly' as const,
       priority: 0.8,
-    })))
+      alternates: { languages: languageAlternates(`/products/${encodeURIComponent(product.id)}`) },
+    }))))
   } catch (error) {
     console.error('[sitemap] Could not load published products', error)
   }

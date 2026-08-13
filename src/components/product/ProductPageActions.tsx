@@ -5,6 +5,7 @@ import { Check, Copy, Download, Lock } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/components/providers/I18nProvider'
 
 interface ProductPageActionsProps {
   productId: string
@@ -13,6 +14,7 @@ interface ProductPageActionsProps {
 }
 
 export function ProductPageActions({ productId, productTitle, isFree }: ProductPageActionsProps) {
+  const { t } = useI18n()
   const { data: session } = useSession()
   const [downloading, setDownloading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -71,12 +73,12 @@ export function ProductPageActions({ productId, productTitle, isFree }: ProductP
           disabled={downloading}
         >
           <Download className="h-4 w-4" />
-          {downloading ? 'Đang tải...' : 'Tải miễn phí'}
+          {downloading ? t('downloading') : t('downloadFree')}
         </Button>
       ) : (
         <Button disabled className="h-12 gap-2 bg-[#272727] text-[#999] disabled:opacity-100">
           <Lock className="h-4 w-4" />
-          Sắp mở bán
+          {t('comingSoon')}
         </Button>
       )}
 

@@ -4,6 +4,7 @@ export type Locale = (typeof locales)[number]
 
 export const defaultLocale: Locale = 'en'
 export const localeCookie = 'reals_locale'
+export const localeHeader = 'x-reals-locale'
 
 export const localeOptions: Array<{ code: Locale; label: string; flag: string }> = [
   { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳' },
@@ -43,4 +44,27 @@ export function localeFromAcceptLanguage(header?: string | null): Locale | null 
     if (isLocale(base)) return base
   }
   return null
+}
+
+export function localeFromPathname(pathname: string): Locale | null {
+  const segment = pathname.split('/')[1]
+  return isLocale(segment) ? segment : null
+}
+
+export function stripLocaleFromPathname(pathname: string): string {
+  const locale = localeFromPathname(pathname)
+  if (!locale) return pathname || '/'
+
+  const stripped = pathname.slice(locale.length + 1)
+  return stripped || '/'
+}
+
+export function localizePathname(pathname: string, locale: Locale): string {
+  const barePath = stripLocaleFromPathname(pathname)
+  return barePath === '/' ? `/${locale}` : `/${locale}${barePath}`
+}
+
+export function isPublicSeoPath(pathname: string): boolean {
+  const barePath = stripLocaleFromPathname(pathname)
+  return barePath === '/' || barePath === '/products' || barePath.startsWith('/products/')
 }

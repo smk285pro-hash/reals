@@ -1,24 +1,44 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { headers } from 'next/headers'
 import { db } from '@/lib/db'
-import { metaDescription, productUrl, siteUrl } from '@/lib/product-seo'
+import { defaultLocale, isLocale, localeHeader } from '@/i18n/config'
+import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, seoCopy, siteName } from '@/i18n/seo'
+import { localizedProductUrl, metaDescription } from '@/lib/product-seo'
 
 export const revalidate = 300
 
-export const metadata: Metadata = {
-  title: 'Sản phẩm REAPER',
-  description: 'Khám phá plugin, JSFX, ReaScript, extension và template dành cho REAPER trên RealS.',
-  alternates: { canonical: `${siteUrl}/products` },
-  openGraph: {
-    type: 'website',
-    url: `${siteUrl}/products`,
-    title: 'Sản phẩm REAPER | RealS',
-    description: 'Khám phá plugin, JSFX, ReaScript, extension và template dành cho REAPER trên RealS.',
-    siteName: 'RealS',
-  },
+async function requestLocale() {
+  const value = (await headers()).get(localeHeader)
+  return isLocale(value) ? value : defaultLocale
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await requestLocale()
+  const copy = seoCopy(locale)
+  const canonical = localizedUrl(locale, '/products')
+
+  return {
+    title: copy.productsTitle,
+    description: copy.productsDescription,
+    alternates: localizedAlternates(locale, '/products'),
+    openGraph: {
+      type: 'website',
+      url: canonical,
+      title: `${copy.productsTitle} | RealS`,
+      description: copy.productsDescription,
+      siteName,
+      locale: localeTags[locale],
+      alternateLocale: alternateLocaleTags(locale),
+    },
+  }
 }
 
 export default async function ProductsPage() {
+  const locale = await requestLocale()
+  const copy = seoCopy(locale)
+  const homeUrl = localizedUrl(locale)
+  const productsUrl = localizedUrl(locale, '/products')
   const products = await db.product.findMany({
     where: {
       published: true,
@@ -45,15 +65,17 @@ export default async function ProductsPage() {
   const collectionJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Sản phẩm REAPER trên RealS',
-    url: `${siteUrl}/products`,
+    name: copy.productsHeading,
+    description: copy.productsDescription,
+    url: productsUrl,
+    inLanguage: locale,
     mainEntity: {
       '@type': 'ItemList',
       itemListElement: products.map((product, index) => ({
         '@type': 'ListItem',
         position: index + 1,
         name: product.title,
-        url: productUrl(product.id),
+        url: localizedProductUrl(locale, product.id),
       })),
     },
   }
@@ -67,14 +89,14 @@ export default async function ProductsPage() {
       <div className="mx-auto max-w-[1400px]">
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <Link href="/" className="text-sm text-[#f5a623] hover:text-[#ffc15b]">RealS</Link>
-            <h1 className="mt-2 text-3xl font-bold text-white">Sản phẩm dành cho REAPER</h1>
+            <Link href={homeUrl} className="text-sm text-[#f5a623] hover:text-[#ffc15b]">RealS</Link>
+            <h1 className="mt-2 text-3xl font-bold text-white">{copy.productsHeading}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#aaa]">
-              Plugin, JSFX, ReaScript, extension và template đã được duyệt trên RealS.
+              {copy.productsDescription}
             </p>
           </div>
-          <Link href="/" className="rounded-full border border-[#303030] bg-[#181818] px-4 py-2 text-sm hover:bg-[#272727]">
-            Về trang chủ
+          <Link href={homeUrl} className="rounded-full border border-[#303030] bg-[#181818] px-4 py-2 text-sm hover:bg-[#272727]">
+            {copy.backHome}
           </Link>
         </header>
 
@@ -84,7 +106,7 @@ export default async function ProductsPage() {
               const isFree = product.isFree || product.price <= 0
               return (
                 <article key={product.id} className="overflow-hidden rounded-xl border border-[#303030] bg-[#181818]">
-                  <Link href={`/products/${encodeURIComponent(product.id)}`} className="block h-full hover:bg-[#202020]">
+                  <Link href={`/${locale}/products/${encodeURIComponent(product.id)}`} className="block h-full hover:bg-[#202020]">
                     <div className="aspect-video bg-black">
                       {product.thumbnail ? (
                         <img
@@ -104,12 +126,12 @@ export default async function ProductsPage() {
                       </div>
                       <h2 className="line-clamp-2 text-base font-semibold text-white">{product.title}</h2>
                       <p className="line-clamp-3 text-sm leading-6 text-[#aaa]">
-                        {metaDescription(product.description, `${product.title} dành cho REAPER`)}
+                        {metaDescription(product.description, `${product.title} for REAPER`)}
                       </p>
                       <div className="flex items-center justify-between gap-3 text-sm">
-                        <span className="truncate text-[#888]">{product.seller.name || 'RealS seller'}</span>
+                        <span className="truncate text-[#888]">{product.seller.name || copy.seller}</span>
                         <strong className={isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}>
-                          {isFree ? 'MIỄN PHÍ' : `$${product.price.toFixed(2)}`}
+                          {isFree ? copy.free : `$${product.price.toFixed(2)}`}
                         </strong>
                       </div>
                     </div>
@@ -120,7 +142,7 @@ export default async function ProductsPage() {
           </div>
         ) : (
           <p className="rounded-xl border border-[#303030] bg-[#181818] p-8 text-center text-[#aaa]">
-            Chưa có sản phẩm công khai.
+            {copy.productsEmpty}
           </p>
         )}
       </div>

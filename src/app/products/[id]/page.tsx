@@ -1,32 +1,47 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import { BadgeCheck, Eye, FileCode, Home, ShoppingBag, Star } from 'lucide-react'
 import { Thumbnail } from '@/components/product/Thumbnail'
 import { ProductPageActions } from '@/components/product/ProductPageActions'
-import { absoluteAssetUrl, getPublishedProduct, metaDescription, plainText, productUrl, siteUrl } from '@/lib/product-seo'
+import { defaultLocale, isLocale, localeHeader, type Locale } from '@/i18n/config'
+import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, seoCopy, siteName } from '@/i18n/seo'
+import { absoluteAssetUrl, getPublishedProduct, localizedProductUrl, metaDescription, plainText } from '@/lib/product-seo'
 
 interface ProductPageProps {
   params: Promise<{ id: string }>
 }
 
+const reviewHeading: Record<Locale, string> = {
+  vi: 'Đánh giá gần đây', en: 'Recent reviews', zh: '近期评价', ja: '最近のレビュー', ko: '최근 리뷰',
+  es: 'Reseñas recientes', fr: 'Avis récents', de: 'Neueste Bewertungen', pt: 'Avaliações recentes', th: 'รีวิวล่าสุด', ru: 'Недавние отзывы',
+}
+
 export const revalidate = 300
+
+async function requestLocale() {
+  const value = (await headers()).get(localeHeader)
+  return isLocale(value) ? value : defaultLocale
+}
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { id } = await params
+  const locale = await requestLocale()
+  const copy = seoCopy(locale)
   const product = await getPublishedProduct(id)
 
   if (!product) {
     return {
-      title: 'Không tìm thấy sản phẩm',
+      title: copy.notFound,
       robots: { index: false, follow: false },
     }
   }
 
-  const canonical = productUrl(product.id)
+  const canonical = localizedProductUrl(locale, product.id)
   const description = metaDescription(
     product.description,
-    `${product.title} — ${product.format} dành cho REAPER, cung cấp bởi ${product.seller.name || 'RealS'}.`,
+    `${product.title} — ${product.format} for REAPER by ${product.seller.name || 'RealS'}.`,
   )
   const image = absoluteAssetUrl(product.thumbnail)
 
@@ -41,13 +56,15 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       'audio plugin',
       ...product.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
     ],
-    alternates: { canonical },
+    alternates: localizedAlternates(locale, `/products/${encodeURIComponent(product.id)}`),
     openGraph: {
       type: 'website',
       url: canonical,
       title: product.title,
       description,
-      siteName: 'RealS',
+      siteName,
+      locale: localeTags[locale],
+      alternateLocale: alternateLocaleTags(locale),
       images: image ? [{ url: image, alt: product.title }] : undefined,
     },
     twitter: {
@@ -59,19 +76,65 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   }
 }
 
-function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getPublishedProduct>>>) {
+function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getPublishedProduct>>>, locale: Locale) {
   const reviews = product.reviews
   const image = absoluteAssetUrl(product.thumbnail)
   const isFree = product.isFree || product.price <= 0
+  const copy = seoCopy(locale)
+  const sellerName = product.seller.name || copy.seller
+  const ratingCount = product._count.reviews
+  const pageUrl = localizedProductUrl(locale, product.id)
+  const offer = {
+    '@type': 'Offer',
+    url: pageUrl,
+    price: isFree ? 0 : Number(product.price.toFixed(2)),
+    priceCurrency: 'USD',
+    availability: isFree ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
+    itemCondition: 'https://schema.org/NewCondition',
+    seller: {
+      '@type': product.seller.isSeller ? 'Organization' : 'Person',
+      name: sellerName,
+    },
+  }
+
+  const aggregateRating = ratingCount > 0 && product.rating > 0
+    ? {
+        '@type': 'AggregateRating',
+        ratingValue: Number(product.rating.toFixed(1)),
+        bestRating: 5,
+        worstRating: 1,
+        ratingCount,
+      }
+    : undefined
+
+  const review = reviews.map((item) => ({
+    '@type': 'Review',
+    datePublished: item.createdAt.toISOString(),
+    author: {
+      '@type': 'Person',
+      name: item.user.name || copy.user,
+    },
+    reviewBody: plainText(item.comment),
+    reviewRating: {
+      '@type': 'Rating',
+      ratingValue: item.rating,
+      bestRating: 5,
+      worstRating: 1,
+    },
+  }))
 
   return {
     '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    '@id': `${productUrl(product.id)}#product`,
+    '@type': ['Product', 'SoftwareApplication'],
+    '@id': `${pageUrl}#product`,
     name: product.title,
     description: plainText(product.description),
-    url: productUrl(product.id),
+    url: pageUrl,
+    inLanguage: locale,
     image,
+    sku: product.id,
+    category: product.categorySlug,
+    keywords: product.tags.split(',').map((tag) => tag.trim()).filter(Boolean).join(', '),
     applicationCategory: 'MultimediaApplication',
     operatingSystem: 'Windows, macOS, Linux',
     softwareRequirements: 'REAPER digital audio workstation',
@@ -79,28 +142,20 @@ function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getPublish
     dateModified: product.updatedAt.toISOString(),
     author: {
       '@type': product.seller.isSeller ? 'Organization' : 'Person',
-      name: product.seller.name || 'RealS seller',
+      name: sellerName,
     },
-    aggregateRating: reviews.length > 0
-      ? {
-          '@type': 'AggregateRating',
-          ratingValue: Number((reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)),
-          bestRating: 5,
-          worstRating: 1,
-          ratingCount: reviews.length,
-        }
-      : undefined,
-    offers: {
-      '@type': 'Offer',
-      url: productUrl(product.id),
-      price: isFree ? 0 : Number(product.price.toFixed(2)),
-      priceCurrency: 'USD',
-      availability: 'https://schema.org/InStock',
+    brand: {
+      '@type': 'Brand',
+      name: sellerName,
     },
+    aggregateRating,
+    review: review.length > 0 ? review : undefined,
+    offers: offer,
   }
 }
 
-function breadcrumbJsonLd(productTitle: string, id: string) {
+function breadcrumbJsonLd(productTitle: string, id: string, locale: Locale) {
+  const copy = seoCopy(locale)
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -109,13 +164,19 @@ function breadcrumbJsonLd(productTitle: string, id: string) {
         '@type': 'ListItem',
         position: 1,
         name: 'RealS',
-        item: siteUrl,
+        item: localizedUrl(locale),
       },
       {
         '@type': 'ListItem',
         position: 2,
+        name: copy.products,
+        item: localizedUrl(locale, '/products'),
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
         name: productTitle,
-        item: productUrl(id),
+        item: localizedProductUrl(locale, id),
       },
     ],
   }
@@ -123,14 +184,19 @@ function breadcrumbJsonLd(productTitle: string, id: string) {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params
+  const locale = await requestLocale()
+  const copy = seoCopy(locale)
   const product = await getPublishedProduct(id)
   if (!product) notFound()
 
   const isFree = product.isFree || product.price <= 0
   const tags = product.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
-  const jsonLd = productJsonLd(product)
-  const breadcrumbs = breadcrumbJsonLd(product.title, product.id)
-  const sellerName = product.seller.name || 'RealS seller'
+  const reviews = product.reviews
+  const jsonLd = productJsonLd(product, locale)
+  const breadcrumbs = breadcrumbJsonLd(product.title, product.id, locale)
+  const sellerName = product.seller.name || copy.seller
+  const homeUrl = `/${locale}`
+  const productsUrl = `/${locale}/products`
 
   return (
     <main className="min-h-screen bg-[#0f0f0f] px-4 py-6 text-[#f1f1f1] sm:px-6 lg:px-8">
@@ -145,21 +211,23 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <div className="mx-auto max-w-[1400px]">
         <header className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold text-white" aria-label="RealS trang chủ">
+          <Link href={homeUrl} className="flex items-center gap-2 text-xl font-bold text-white" aria-label={`RealS — ${copy.home}`}>
             Real<span className="-ml-2 text-[#f5a623]">S</span>
           </Link>
           <Link
-            href="/"
+            href={homeUrl}
             className="inline-flex items-center gap-2 rounded-full border border-[#303030] bg-[#181818] px-4 py-2 text-sm text-[#ccc] transition-colors hover:bg-[#272727] hover:text-white"
           >
             <Home className="h-4 w-4" />
-            Xem tất cả sản phẩm
+            {copy.backHome}
           </Link>
         </header>
 
         <nav aria-label="Breadcrumb" className="mb-5 text-sm text-[#888]">
           <ol className="flex flex-wrap items-center gap-2">
-            <li><Link href="/" className="hover:text-white">Trang chủ</Link></li>
+            <li><Link href={homeUrl} className="hover:text-white">{copy.home}</Link></li>
+            <li aria-hidden="true">/</li>
+            <li><Link href={productsUrl} className="hover:text-white">{copy.products}</Link></li>
             <li aria-hidden="true">/</li>
             <li className="text-[#ccc]" aria-current="page">{product.title}</li>
           </ol>
@@ -191,7 +259,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <h1 className="text-2xl font-bold leading-tight text-white sm:text-3xl">{product.title}</h1>
                 <div className="mt-3 flex items-center gap-2 text-sm text-[#aaa]">
                   <span>{sellerName}</span>
-                  <BadgeCheck className="h-4 w-4 text-[#3ea6ff]" aria-label="Người bán đã xác minh" />
+                  <BadgeCheck className="h-4 w-4 text-[#3ea6ff]" aria-label={copy.verifiedSeller} />
                 </div>
               </div>
 
@@ -202,18 +270,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Eye className="h-4 w-4" />
-                  {product.views.toLocaleString('vi-VN')} lượt xem
+                  {product.views.toLocaleString(locale)} {copy.views}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <ShoppingBag className="h-4 w-4" />
-                  {product.sales.toLocaleString('vi-VN')} lượt tải/bán
+                  {product.sales.toLocaleString(locale)} {copy.sales}
                 </span>
               </div>
 
               <div>
-                <p className="text-sm text-[#aaa]">Giá</p>
+                <p className="text-sm text-[#aaa]">{copy.price}</p>
                 <p className={`mt-1 text-3xl font-bold ${isFree ? 'text-[#3fb950]' : 'text-[#f5a623]'}`}>
-                  {isFree ? 'MIỄN PHÍ' : `$${product.price.toFixed(2)}`}
+                  {isFree ? copy.free : `$${product.price.toFixed(2)}`}
                 </p>
               </div>
 
@@ -224,9 +292,30 @@ export default async function ProductPage({ params }: ProductPageProps) {
               />
 
               <div>
-                <h2 className="mb-2 text-base font-semibold text-white">Mô tả sản phẩm</h2>
+                <h2 className="mb-2 text-base font-semibold text-white">{copy.description}</h2>
                 <p className="whitespace-pre-wrap text-sm leading-7 text-[#ccc]">{product.description}</p>
               </div>
+
+              {reviews.length > 0 && (
+                <section aria-labelledby="product-reviews-heading">
+                  <h2 id="product-reviews-heading" className="mb-3 text-base font-semibold text-white">
+                    {reviewHeading[locale]}
+                  </h2>
+                  <div className="space-y-3">
+                    {reviews.map((review) => (
+                      <article key={`${review.createdAt.toISOString()}-${review.user.name || 'anonymous'}`} className="rounded-lg border border-[#303030] bg-[#1b1b1b] p-3">
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <strong className="text-[#ddd]">{review.user.name || copy.user}</strong>
+                          <span className="text-[#f5a623]" aria-label={`${review.rating} trên 5 sao`}>
+                            {review.rating}/5 ★
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-[#aaa]">{review.comment}</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-2" aria-label="Thẻ sản phẩm">

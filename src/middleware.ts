@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import {
+  defaultLocale,
+  isPublicSeoPath,
+  isLocale,
+  localeCookie,
+  localeFromAcceptLanguage,
+  localeFromCountry,
+  localeFromPathname,
+  localeHeader,
+  stripLocaleFromPathname,
+} from '@/i18n/config'
 
 // Rate limiting store.
 //
@@ -104,6 +115,51 @@ function rateLimit(ip: string, path: string): { allowed: boolean; remaining: num
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
+  const urlLocale = localeFromPathname(pathname)
+  const barePath = stripLocaleFromPathname(pathname)
+  const canLocalize = (req.method === 'GET' || req.method === 'HEAD') && isPublicSeoPath(pathname)
+
+  if (canLocalize && !urlLocale) {
+    const cookieLocale = req.cookies.get(localeCookie)?.value
+    const detectedLocale = isLocale(cookieLocale) ? cookieLocale : null
+    const locale = detectedLocale
+      || localeFromCountry(req.headers.get('x-vercel-ip-country') || req.headers.get('cf-ipcountry'))
+      || localeFromAcceptLanguage(req.headers.get('accept-language'))
+      || defaultLocale
+    const redirectUrl = req.nextUrl.clone()
+    redirectUrl.pathname = barePath === '/' ? `/${locale}` : `/${locale}${barePath}`
+    const redirect = NextResponse.redirect(redirectUrl, 307)
+    redirect.cookies.set(localeCookie, locale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    })
+    return applySecurityHeaders(redirect, pathname)
+  }
+
+  if (canLocalize && urlLocale) {
+    const { allowed, remaining } = rateLimit(clientIp(req), pathname)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' },
+        { status: 429, headers: { 'Retry-After': '60' } },
+      )
+    }
+
+    const rewriteUrl = req.nextUrl.clone()
+    rewriteUrl.pathname = barePath
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.set(localeHeader, urlLocale)
+    const rewrite = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
+    rewrite.cookies.set(localeCookie, urlLocale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    })
+    rewrite.headers.set('X-RateLimit-Remaining', String(remaining))
+    return applySecurityHeaders(rewrite, pathname)
+  }
+
   // Auth routes are handled by NextAuth, but they are not exempt from rate
   // limiting: this early return used to skip the limiter entirely, leaving
   // POST /api/auth/callback/credentials open to unlimited password guessing.
@@ -129,30 +185,7 @@ export async function middleware(req: NextRequest) {
 
   const response = NextResponse.next()
 
-  // ─── Security Headers ───
-  response.headers.set('X-Frame-Options', 'DENY')
-  response.headers.set('X-Content-Type-Options', 'nosniff')
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  response.headers.set('X-XSS-Protection', '1; mode=block')
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-
-  // CSP for non-API requests
-  if (!pathname.startsWith('/api/')) {
-    response.headers.set(
-      'Content-Security-Policy',
-      [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https: http:",
-        "media-src 'self' https: http:",
-        "frame-src 'self' https://www.youtube.com https://youtube.com https://vercel.live https://accounts.google.com",
-        "connect-src 'self' https: wss:",
-        "worker-src 'self' blob:",
-      ].join('; ')
-    )
-  }
+  applySecurityHeaders(response, pathname)
 
   // ─── Rate Limiting ───
   const { allowed, remaining } = rateLimit(clientIp(req), pathname)
@@ -215,6 +248,33 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(homeUrl)
       }
     }
+  }
+
+  return response
+}
+
+function applySecurityHeaders<T extends NextResponse>(response: T, pathname: string): T {
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('X-XSS-Protection', '1; mode=block')
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+
+  if (!pathname.startsWith('/api/')) {
+    response.headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https: http:",
+        "media-src 'self' https: http:",
+        "frame-src 'self' https://www.youtube.com https://youtube.com https://vercel.live https://accounts.google.com",
+        "connect-src 'self' https: wss:",
+        "worker-src 'self' blob:",
+      ].join('; ')
+    )
   }
 
   return response

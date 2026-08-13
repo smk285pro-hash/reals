@@ -4,10 +4,9 @@ import "./globals.css";
 import { Providers } from "@/components/providers/Providers";
 import { Analytics } from "@vercel/analytics/next";
 import { cookies, headers } from 'next/headers'
-import { defaultLocale, isLocale, localeCookie, localeFromAcceptLanguage, localeFromCountry } from '@/i18n/config'
+import { defaultLocale, isLocale, localeCookie, localeFromAcceptLanguage, localeFromCountry, localeHeader, locales } from '@/i18n/config'
+import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, openGraphImage, seoCopy, siteName, siteUrl } from '@/i18n/seo'
 
-const siteUrl = 'https://reals.media'
-const siteName = 'RealS'
 const siteDescription = 'Marketplace plugin, JSFX, ReaScript, extension và template chuyên nghiệp dành cho REAPER DAW.'
 
 const organizationJsonLd = {
@@ -28,7 +27,7 @@ const websiteJsonLd = {
   name: siteName,
   description: siteDescription,
   publisher: { '@id': `${siteUrl}/#organization` },
-  inLanguage: ['vi', 'en', 'zh', 'ja', 'ko', 'es', 'fr', 'de', 'pt', 'th', 'ru'],
+  inLanguage: locales,
 }
 
 const geistSans = Geist({
@@ -41,53 +40,71 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "RealS — Plugin & Script Marketplace cho REAPER",
-    template: "%s | RealS",
-  },
-  description: siteDescription,
-  applicationName: siteName,
-  keywords: ["REAPER", "JSFX", "ReaScript", "REAPER extension", "audio plugin", "DAW", "mixing", "mastering"],
-  authors: [{ name: siteName, url: siteUrl }],
-  creator: siteName,
-  publisher: siteName,
-  category: 'technology',
-  alternates: {
-    canonical: '/',
-  },
-  openGraph: {
-    type: 'website',
-    url: '/',
-    siteName,
-    title: "RealS — Plugin & Script Marketplace cho REAPER",
-    description: siteDescription,
-    images: [{ url: '/logo.svg', width: 512, height: 512, alt: 'RealS' }],
-  },
-  twitter: {
-    card: 'summary',
-    title: "RealS — Plugin & Script Marketplace cho REAPER",
-    description: siteDescription,
-    images: ['/logo.svg'],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+async function getRequestLocale() {
+  const cookieStore = await cookies()
+  const headerStore = await headers()
+  const requestLocale = headerStore.get(localeHeader)
+  const savedLocale = cookieStore.get(localeCookie)?.value
+
+  return isLocale(requestLocale)
+    ? requestLocale
+    : isLocale(savedLocale)
+      ? savedLocale
+      : localeFromCountry(headerStore.get('x-vercel-ip-country') || headerStore.get('cf-ipcountry'))
+        || localeFromAcceptLanguage(headerStore.get('accept-language'))
+        || defaultLocale
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale()
+  const copy = seoCopy(locale)
+  const canonical = localizedUrl(locale)
+
+  return {
+    metadataBase: new URL(siteUrl),
+    title: { default: copy.homeTitle, template: '%s | RealS' },
+    description: copy.homeDescription,
+    applicationName: siteName,
+    keywords: ['REAPER', 'JSFX', 'ReaScript', 'REAPER extension', 'audio plugin', 'DAW', 'mixing', 'mastering'],
+    authors: [{ name: siteName, url: siteUrl }],
+    creator: siteName,
+    publisher: siteName,
+    category: 'technology',
+    alternates: localizedAlternates(locale),
+    openGraph: {
+      type: 'website',
+      url: canonical,
+      siteName,
+      title: copy.homeTitle,
+      description: copy.homeDescription,
+      locale: localeTags[locale],
+      alternateLocale: alternateLocaleTags(locale),
+      images: [{ url: openGraphImage, width: 1200, height: 630, alt: 'RealS — REAPER plugins and scripts marketplace' }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: copy.homeTitle,
+      description: copy.homeDescription,
+      images: [openGraphImage],
+    },
+    robots: {
       index: true,
       follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-      'max-video-preview': -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
     },
-  },
-  icons: {
-    icon: [{ url: '/logo.svg', type: 'image/svg+xml' }],
-    shortcut: '/logo.svg',
-    apple: '/logo.svg',
-  },
-};
+    icons: {
+      icon: [{ url: '/logo.svg', type: 'image/svg+xml' }],
+      shortcut: '/logo.svg',
+      apple: '/logo.svg',
+    },
+  }
+}
 
 export const viewport = {
   width: "device-width",
@@ -102,14 +119,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies()
-  const headerStore = await headers()
-  const savedLocale = cookieStore.get(localeCookie)?.value
-  const locale = isLocale(savedLocale)
-    ? savedLocale
-    : localeFromCountry(headerStore.get('x-vercel-ip-country') || headerStore.get('cf-ipcountry'))
-      || localeFromAcceptLanguage(headerStore.get('accept-language'))
-      || defaultLocale
+  const locale = await getRequestLocale()
 
   return (
     <html lang={locale} suppressHydrationWarning>
