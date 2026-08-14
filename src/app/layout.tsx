@@ -7,29 +7,6 @@ import { cookies, headers } from 'next/headers'
 import { defaultLocale, isLocale, localeCookie, localeFromAcceptLanguage, localeFromCountry, localeHeader, locales } from '@/i18n/config'
 import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, openGraphImage, seoCopy, siteName, siteUrl } from '@/i18n/seo'
 
-const siteDescription = 'Marketplace plugin, JSFX, ReaScript, extension và template chuyên nghiệp dành cho REAPER DAW.'
-
-const organizationJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  '@id': `${siteUrl}/#organization`,
-  name: siteName,
-  url: siteUrl,
-  logo: `${siteUrl}/logo.svg`,
-  description: siteDescription,
-}
-
-const websiteJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  '@id': `${siteUrl}/#website`,
-  url: siteUrl,
-  name: siteName,
-  description: siteDescription,
-  publisher: { '@id': `${siteUrl}/#organization` },
-  inLanguage: locales,
-}
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -108,6 +85,37 @@ export const viewport = {
   viewportFit: "cover",
   themeColor: "#0f0f0f",
 };
+
+const siteDescription = 'Marketplace plugin, JSFX, ReaScript, extension và template chuyên nghiệp dành cho REAPER DAW.'
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  '@id': `${siteUrl}/#organization`,
+  name: siteName,
+  url: siteUrl,
+  logo: `${siteUrl}/reals-mark.png`,
+  description: siteDescription,
+}
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  '@id': `${siteUrl}/#website`,
+  url: siteUrl,
+  name: siteName,
+  description: siteDescription,
+  publisher: { '@id': `${siteUrl}/#organization` },
+  inLanguage: locales,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${siteUrl}/search?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+}
 
 export default async function RootLayout({
   children,

@@ -3,15 +3,16 @@
 import { PrismaClient } from '@prisma/client'
 
 // Load env vars if not already available (fixes Next.js + Prisma runtime issue)
-if (!process.env.DATABASE_URL) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const dotenv = require('dotenv')
-    dotenv.config({ path: '.env.local' })
-    dotenv.config()
-  } catch {
-    // dotenv not available, env vars must be set externally
-  }
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const dotenv = require('dotenv')
+  dotenv.config({ path: '.env.local' })
+  dotenv.config()
+} catch {
+  // dotenv not available, env vars must be set externally
+}
+if (!process.env.DATABASE_URL_UNPOOLED) {
+  process.env.DATABASE_URL_UNPOOLED = process.env.DATABASE_URL
 }
 
 const globalForPrisma = globalThis as unknown as {

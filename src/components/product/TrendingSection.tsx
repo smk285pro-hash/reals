@@ -27,7 +27,7 @@ export function TrendingSection({ products }: TrendingSectionProps) {
     <div className="mb-6 overflow-hidden rounded-xl border border-[#303030] bg-gradient-to-r from-[#1a1400] to-[#0f0f0f]">
       <div className="flex items-center gap-2 px-4 py-3">
         <TrendingUp className="h-5 w-5 text-[#f5a623]" />
-        <h3 className="text-sm font-semibold text-[#f5a623]">{t('trending')}</h3>
+        <h2 className="text-sm font-semibold text-[#f5a623]">{t('trending')}</h2>
       </div>
       <div className="flex gap-0 overflow-x-auto px-2 pb-3">
         {trending.map((product, i) => (

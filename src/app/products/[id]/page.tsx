@@ -6,7 +6,7 @@ import { BadgeCheck, Eye, FileCode, Home, ShoppingBag, Star } from 'lucide-react
 import { Thumbnail } from '@/components/product/Thumbnail'
 import { ProductPageActions } from '@/components/product/ProductPageActions'
 import { defaultLocale, isLocale, localeHeader, type Locale } from '@/i18n/config'
-import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, seoCopy, siteName } from '@/i18n/seo'
+import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, openGraphImage, seoCopy, siteName, siteUrl } from '@/i18n/seo'
 import { absoluteAssetUrl, getPublishedProduct, localizedProductUrl, metaDescription, plainText } from '@/lib/product-seo'
 
 interface ProductPageProps {
@@ -41,9 +41,9 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const canonical = localizedProductUrl(locale, product.id)
   const description = metaDescription(
     product.description,
-    `${product.title} — ${product.format} for REAPER by ${product.seller.name || 'RealS'}.`,
+    `${product.title} — ${product.format} for REAPER by ${product.seller?.name || 'RealS'}.`,
   )
-  const image = absoluteAssetUrl(product.thumbnail)
+  const ogImage = absoluteAssetUrl(product.thumbnail) || openGraphImage
 
   return {
     title: product.title,
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       product.categorySlug,
       'REAPER',
       'audio plugin',
-      ...product.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+      ...(product.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean),
     ],
     alternates: localizedAlternates(locale, `/products/${encodeURIComponent(product.id)}`),
     openGraph: {
@@ -65,34 +65,36 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       siteName,
       locale: localeTags[locale],
       alternateLocale: alternateLocaleTags(locale),
-      images: image ? [{ url: image, alt: product.title }] : undefined,
+      images: [{ url: ogImage, alt: product.title }],
     },
     twitter: {
-      card: image ? 'summary_large_image' : 'summary',
+      card: 'summary_large_image',
       title: product.title,
       description,
-      images: image ? [image] : undefined,
+      images: [ogImage],
     },
   }
 }
 
 function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getPublishedProduct>>>, locale: Locale) {
-  const reviews = product.reviews
-  const image = absoluteAssetUrl(product.thumbnail)
+  const reviews = product.reviews || []
+  const fallbackImage = `${siteUrl}/reals-mark.png`
+  const image = absoluteAssetUrl(product.thumbnail) || fallbackImage
   const isFree = product.isFree || product.price <= 0
   const copy = seoCopy(locale)
-  const sellerName = product.seller.name || copy.seller
-  const ratingCount = product._count.reviews
+  const sellerName = product.seller?.name || copy.seller
+  const ratingCount = product._count?.reviews || 0
   const pageUrl = localizedProductUrl(locale, product.id)
   const offer = {
     '@type': 'Offer',
     url: pageUrl,
     price: isFree ? 0 : Number(product.price.toFixed(2)),
     priceCurrency: 'USD',
-    availability: isFree ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
+    availability: 'https://schema.org/InStock',
+    priceValidUntil: '2030-12-31',
     itemCondition: 'https://schema.org/NewCondition',
     seller: {
-      '@type': product.seller.isSeller ? 'Organization' : 'Person',
+      '@type': product.seller?.isSeller ? 'Organization' : 'Person',
       name: sellerName,
     },
   }
@@ -109,7 +111,7 @@ function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getPublish
 
   const review = reviews.map((item) => ({
     '@type': 'Review',
-    datePublished: item.createdAt.toISOString(),
+    datePublished: new Date(item.createdAt).toISOString(),
     author: {
       '@type': 'Person',
       name: item.user.name || copy.user,
@@ -132,14 +134,15 @@ function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getPublish
     url: pageUrl,
     inLanguage: locale,
     image,
+    screenshot: image,
     sku: product.id,
     category: product.categorySlug,
-    keywords: product.tags.split(',').map((tag) => tag.trim()).filter(Boolean).join(', '),
+    keywords: (product.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean).join(', '),
     applicationCategory: 'MultimediaApplication',
     operatingSystem: 'Windows, macOS, Linux',
     softwareRequirements: 'REAPER digital audio workstation',
-    datePublished: product.createdAt.toISOString(),
-    dateModified: product.updatedAt.toISOString(),
+    datePublished: new Date(product.createdAt).toISOString(),
+    dateModified: new Date(product.updatedAt).toISOString(),
     author: {
       '@type': product.seller.isSeller ? 'Organization' : 'Person',
       name: sellerName,
@@ -190,7 +193,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (!product) notFound()
 
   const isFree = product.isFree || product.price <= 0
-  const tags = product.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+  const tags = (product.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean)
   const reviews = product.reviews
   const jsonLd = productJsonLd(product, locale)
   const breadcrumbs = breadcrumbJsonLd(product.title, product.id, locale)
@@ -238,7 +241,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <section className="flex min-h-[280px] items-center justify-center bg-black sm:min-h-[420px] lg:min-h-[620px]">
               <Thumbnail
                 src={product.thumbnail}
-                alt={`${product.title} — ${product.format} cho REAPER`}
+                alt={`${product.title} — ${product.format} ${copy.forReaper}`}
                 className="h-full max-h-[760px] w-full object-contain"
                 loading="eager"
               />
@@ -303,10 +306,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   </h2>
                   <div className="space-y-3">
                     {reviews.map((review) => (
-                      <article key={`${review.createdAt.toISOString()}-${review.user.name || 'anonymous'}`} className="rounded-lg border border-[#303030] bg-[#1b1b1b] p-3">
+                      <article key={`${new Date(review.createdAt).toISOString()}-${review.user.name || 'anonymous'}`} className="rounded-lg border border-[#303030] bg-[#1b1b1b] p-3">
                         <div className="flex items-center justify-between gap-3 text-sm">
                           <strong className="text-[#ddd]">{review.user.name || copy.user}</strong>
-                          <span className="text-[#f5a623]" aria-label={`${review.rating} trên 5 sao`}>
+                          <span className="text-[#f5a623]" aria-label={copy.ratingOutOfFive.replace('{rating}', String(review.rating))}>
                             {review.rating}/5 ★
                           </span>
                         </div>
@@ -318,7 +321,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               )}
 
               {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2" aria-label="Thẻ sản phẩm">
+                <div className="flex flex-wrap gap-2" aria-label={copy.productTags}>
                   {tags.map((tag) => (
                     <span key={tag} className="rounded border border-[#303030] bg-[#1f1f1f] px-2.5 py-1 text-xs text-[#aaa]">
                       {tag}

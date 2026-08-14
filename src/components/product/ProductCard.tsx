@@ -194,7 +194,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </Link>
         <button
           type="button"
-          aria-label={inWishlist ? `Bỏ ${product.title} khỏi yêu thích` : `Thêm ${product.title} vào yêu thích`}
+          aria-label={inWishlist ? t('removeFromWishlist', { title: product.title }) : t('addToWishlist', { title: product.title })}
           className={`absolute bottom-[78px] left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 transition-all hover:scale-110 ${
             inWishlist ? 'text-red-500' : 'text-white/70 hover:text-white'
           }`}

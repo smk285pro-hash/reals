@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { headers } from 'next/headers'
 import { db } from '@/lib/db'
 import { defaultLocale, isLocale, localeHeader } from '@/i18n/config'
-import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, seoCopy, siteName } from '@/i18n/seo'
+import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, openGraphImage, seoCopy, siteName } from '@/i18n/seo'
 import { localizedProductUrl, metaDescription } from '@/lib/product-seo'
 
 export const revalidate = 300
@@ -21,6 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: copy.productsTitle,
     description: copy.productsDescription,
+    keywords: ['REAPER', 'JSFX', 'ReaScript', 'REAPER plugins', 'REAPER templates', 'audio plugins'],
     alternates: localizedAlternates(locale, '/products'),
     openGraph: {
       type: 'website',
@@ -30,6 +31,13 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName,
       locale: localeTags[locale],
       alternateLocale: alternateLocaleTags(locale),
+      images: [{ url: openGraphImage, width: 1200, height: 630, alt: copy.productsHeading }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${copy.productsTitle} | RealS`,
+      description: copy.productsDescription,
+      images: [openGraphImage],
     },
   }
 }
@@ -71,6 +79,7 @@ export default async function ProductsPage() {
     inLanguage: locale,
     mainEntity: {
       '@type': 'ItemList',
+      numberOfItems: products.length,
       itemListElement: products.map((product, index) => ({
         '@type': 'ListItem',
         position: index + 1,
@@ -111,7 +120,7 @@ export default async function ProductsPage() {
                       {product.thumbnail ? (
                         <img
                           src={product.thumbnail}
-                          alt={`${product.title} — ${product.format} cho REAPER`}
+                          alt={`${product.title} — ${product.format} ${copy.forReaper}`}
                           className="h-full w-full object-contain"
                           loading="lazy"
                         />

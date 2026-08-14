@@ -390,7 +390,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                     ) : (
                       <Download className="h-4 w-4" />
                     )}
-                    {downloading ? 'Đang tải...' : 'Tải xuống (đã mua)'}
+                    {downloading ? t('downloading') : t('downloadPurchased')}
                   </Button>
                 ) : (
                   /* PAID product — not purchased. No payment provider is wired

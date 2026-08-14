@@ -31,7 +31,7 @@ export function CartDrawer() {
         <div className="flex items-center justify-between border-b border-[#303030] px-5 py-4">
           <div className="flex items-center gap-3">
             <ShoppingCart className="h-5 w-5 text-[#f5a623]" />
-            <h2 className="text-lg font-semibold text-white">{t('cart')}</h2>
+            <div className="text-lg font-semibold text-white">{t('cart')}</div>
             <span className="rounded-full bg-[#272727] px-2.5 py-0.5 text-xs text-[#aaa]">
               {items.length}
             </span>
