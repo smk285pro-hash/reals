@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: copy.productsTitle,
     description: copy.productsDescription,
-    keywords: ['REAPER', 'JSFX', 'ReaScript', 'REAPER plugins', 'REAPER templates', 'audio plugins'],
+    keywords: copy.keywords,
     alternates: localizedAlternates(locale, '/products'),
     openGraph: {
       type: 'website',

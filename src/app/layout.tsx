@@ -42,12 +42,15 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: copy.homeTitle, template: '%s | RealS' },
     description: copy.homeDescription,
     applicationName: siteName,
-    keywords: ['REAPER', 'JSFX', 'ReaScript', 'REAPER extension', 'audio plugin', 'DAW', 'mixing', 'mastering'],
+    keywords: copy.keywords,
     authors: [{ name: siteName, url: siteUrl }],
     creator: siteName,
     publisher: siteName,
     category: 'technology',
     alternates: localizedAlternates(locale),
+    verification: {
+      google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION,
+    },
     openGraph: {
       type: 'website',
       url: canonical,

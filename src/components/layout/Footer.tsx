@@ -2,9 +2,12 @@
 
 import { Github, Twitter, Youtube, Mail } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
+import { useAppStore } from '@/stores'
+import Link from 'next/link'
 
 export function Footer() {
   const { t } = useI18n()
+  const { setSellerApplyModalOpen } = useAppStore()
   return (
     <footer className="mt-auto border-t border-[#303030] bg-[#0f0f0f] px-4 py-8 md:px-6">
       <div className="mx-auto max-w-[1400px]">
@@ -23,10 +26,10 @@ export function Footer() {
           <div>
             <h4 className="mb-3 text-sm font-semibold text-[#f1f1f1]">{t('marketplace')}</h4>
             <ul className="space-y-2 text-sm text-[#888]">
-              <li><a href="#" className="hover:text-white">{t('allProducts')}</a></li>
-              <li><a href="#" className="hover:text-white">{t('free')}</a></li>
-              <li><a href="#" className="hover:text-white">{t('bestSelling')}</a></li>
-              <li><a href="#" className="hover:text-white">{t('latest')}</a></li>
+              <li><Link href="/products" className="hover:text-white">{t('allProducts')}</Link></li>
+              <li><Link href="/products" className="hover:text-white">{t('free')}</Link></li>
+              <li><Link href="/products" className="hover:text-white">{t('bestSelling')}</Link></li>
+              <li><Link href="/products" className="hover:text-white">{t('latest')}</Link></li>
             </ul>
           </div>
 
@@ -43,10 +46,10 @@ export function Footer() {
           <div>
             <h4 className="mb-3 text-sm font-semibold text-[#f1f1f1]">{t('forSellers')}</h4>
             <ul className="space-y-2 text-sm text-[#888]">
-              <li><a href="#" className="hover:text-white">{t('sellProduct')}</a></li>
-              <li><a href="#" className="hover:text-white">Seller Dashboard</a></li>
+              <li><button type="button" onClick={() => setSellerApplyModalOpen(true)} className="hover:text-white">{t('sellProduct')}</button></li>
+              <li><a href="#" className="hover:text-white">{t('sellerDashboard')}</a></li>
               <li><a href="#" className="hover:text-white">{t('developerGuide')}</a></li>
-              <li><a href="#" className="hover:text-white">API Documentation</a></li>
+              <li><a href="#" className="hover:text-white">{t('apiDocs')}</a></li>
             </ul>
           </div>
         </div>

@@ -28,6 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: copy.homeTitle,
     description: copy.homeDescription,
+    keywords: copy.keywords,
     alternates: localizedAlternates(locale, '/'),
     openGraph: {
       type: 'website',

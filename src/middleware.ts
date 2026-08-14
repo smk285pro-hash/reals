@@ -71,13 +71,40 @@ function clientIp(req: NextRequest): string {
 }
 
 function rateLimit(ip: string, path: string): { allowed: boolean; remaining: number } {
-  return { allowed: true, remaining: 9999 }
+  const now = Date.now()
+  sweepExpired(now)
+  const bucket: keyof typeof RATE_LIMIT_MAX = path.startsWith('/api/') ? 'api' : 'default'
+  const limit = RATE_LIMIT_MAX[bucket]
+  const key = `${bucket}:${ip}`
+  const entry = rateLimitMap.get(key)
+  if (!entry || now >= entry.resetTime) {
+    rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW })
+    return { allowed: true, remaining: limit - 1 }
+  }
+  entry.count += 1
+  return { allowed: entry.count <= limit, remaining: Math.max(0, limit - entry.count) }
+}
+
+function tooManyRequests(pathname: string): NextResponse {
+  return applySecurityHeaders(
+    NextResponse.json({ error: 'Too many requests' }, { status: 429 }),
+    pathname,
+  )
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   const userAgent = req.headers.get('user-agent')
   const isBot = isSearchBot(userAgent)
+
+  // Consolidate www.* hosts onto the apex domain so canonical, hreflang and
+  // sitemap signals all live on a single host.
+  const host = req.headers.get('host') || ''
+  if (host.startsWith('www.')) {
+    const url = req.nextUrl.clone()
+    url.host = host.slice(4)
+    return applySecurityHeaders(NextResponse.redirect(url, 308), pathname)
+  }
 
   // Guard against internal rewrite loops: if x-reals-locale header is present, pass through
   if (req.headers.get(localeHeader)) {
@@ -115,6 +142,7 @@ export async function middleware(req: NextRequest) {
     let remaining = 60
     if (!isBot) {
       const res = rateLimit(clientIp(req), pathname)
+      if (!res.allowed) return tooManyRequests(pathname)
       remaining = res.remaining
     }
 
@@ -144,8 +172,9 @@ export async function middleware(req: NextRequest) {
 
   // Rate Limiting for non-localized routes
   if (!isBot) {
-    const { remaining } = rateLimit(clientIp(req), pathname)
-    response.headers.set('X-RateLimit-Remaining', String(remaining))
+    const res = rateLimit(clientIp(req), pathname)
+    if (!res.allowed) return tooManyRequests(pathname)
+    response.headers.set('X-RateLimit-Remaining', String(res.remaining))
   }
 
   // Admin Route Protection
