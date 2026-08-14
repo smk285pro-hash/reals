@@ -49,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
     category: 'technology',
     alternates: localizedAlternates(locale),
     verification: {
-      google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION,
+      google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION || 'Wj1kBciTa23yEPyuhdQozio9fukgfcJ3zPDOoIkb0iU',
     },
     openGraph: {
       type: 'website',
