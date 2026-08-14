@@ -7,7 +7,7 @@ import { Thumbnail } from '@/components/product/Thumbnail'
 import { ProductPageActions } from '@/components/product/ProductPageActions'
 import { defaultLocale, isLocale, localeHeader, type Locale } from '@/i18n/config'
 import { alternateLocaleTags, localeTags, localizedAlternates, localizedUrl, openGraphImage, seoCopy, siteName, siteUrl } from '@/i18n/seo'
-import { absoluteAssetUrl, getPublishedProduct, localizedProductUrl, metaDescription, plainText } from '@/lib/product-seo'
+import { absoluteAssetUrl, getPublishedProduct, localizedProductUrl, metaDescription, plainText, productToken } from '@/lib/product-seo'
 
 interface ProductPageProps {
   params: Promise<{ id: string }>
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     }
   }
 
-  const canonical = localizedProductUrl(locale, product.id)
+  const canonical = localizedProductUrl(locale, productToken(product))
   const description = metaDescription(
     product.description,
     `${product.title} — ${product.format} for REAPER by ${product.seller?.name || 'RealS'}.`,
@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       'audio plugin',
       ...(product.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean),
     ],
-    alternates: localizedAlternates(locale, `/products/${encodeURIComponent(product.id)}`),
+    alternates: localizedAlternates(locale, `/products/${encodeURIComponent(productToken(product))}`),
     openGraph: {
       type: 'website',
       url: canonical,
@@ -84,7 +84,7 @@ function productJsonLd(product: NonNullable<Awaited<ReturnType<typeof getPublish
   const copy = seoCopy(locale)
   const sellerName = product.seller?.name || copy.seller
   const ratingCount = product._count?.reviews || 0
-  const pageUrl = localizedProductUrl(locale, product.id)
+  const pageUrl = localizedProductUrl(locale, productToken(product))
   const offer = {
     '@type': 'Offer',
     url: pageUrl,
@@ -196,7 +196,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const tags = (product.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean)
   const reviews = product.reviews
   const jsonLd = productJsonLd(product, locale)
-  const breadcrumbs = breadcrumbJsonLd(product.title, product.id, locale)
+  const breadcrumbs = breadcrumbJsonLd(product.title, productToken(product), locale)
   const sellerName = product.seller.name || copy.seller
   const homeUrl = `/${locale}`
   const productsUrl = `/${locale}/products`

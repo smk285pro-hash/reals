@@ -78,6 +78,7 @@ model Category {
 model Product {
   id           String    @id @default(cuid())
   title        String
+  slug         String?   @unique
   description  String
   price        Float     @default(0)
   isFree       Boolean   @default(false)

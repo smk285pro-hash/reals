@@ -91,7 +91,7 @@ export function ProductCard({ product }: ProductCardProps) {
     <HoverPreview product={product}>
       <div className="group relative">
         <Link
-          href={`/products/${encodeURIComponent(product.id)}`}
+          href={`/products/${encodeURIComponent(product.slug || product.id)}`}
           className="block cursor-pointer"
           onClick={(event) => {
             // Keep the fast modal experience for normal clicks while exposing a

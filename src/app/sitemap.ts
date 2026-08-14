@@ -33,17 +33,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
       select: {
         id: true,
+        slug: true,
         updatedAt: true,
       },
       orderBy: { updatedAt: 'desc' },
     })
 
     routes.push(...products.flatMap((product) => locales.map((locale) => ({
-      url: localizedProductUrl(locale, product.id),
+      url: localizedProductUrl(locale, product.slug || product.id),
       lastModified: product.updatedAt,
       changeFrequency: 'weekly' as const,
       priority: 0.8,
-      alternates: { languages: languageAlternates(`/products/${encodeURIComponent(product.id)}`) },
+      alternates: { languages: languageAlternates(`/products/${encodeURIComponent(product.slug || product.id)}`) },
     }))))
   } catch (error) {
     console.error('[sitemap] Could not load published products', error)

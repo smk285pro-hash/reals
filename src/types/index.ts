@@ -1,5 +1,6 @@
 export interface Product {
   id: string
+  slug: string | null
   title: string
   description: string
   price: number

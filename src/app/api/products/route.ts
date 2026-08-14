@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { db } from '@/lib/db'
+import { generateUniqueProductSlug } from '@/lib/slug'
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl
@@ -119,6 +120,9 @@ export async function POST(req: NextRequest) {
     const product = await db.product.create({
       data: {
         title: body.title.trim(),
+        // Human-readable URL token for /products/{slug}; stable on later
+        // title edits on purpose (changing it would break indexed URLs).
+        slug: await generateUniqueProductSlug(body.title.trim()),
         description: body.description || '',
         price,
         isFree,

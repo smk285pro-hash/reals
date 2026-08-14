@@ -54,6 +54,7 @@ export default async function ProductsPage() {
     },
     select: {
       id: true,
+      slug: true,
       title: true,
       description: true,
       thumbnail: true,
@@ -84,7 +85,7 @@ export default async function ProductsPage() {
         '@type': 'ListItem',
         position: index + 1,
         name: product.title,
-        url: localizedProductUrl(locale, product.id),
+        url: localizedProductUrl(locale, product.slug || product.id),
       })),
     },
   }
@@ -115,7 +116,7 @@ export default async function ProductsPage() {
               const isFree = product.isFree || product.price <= 0
               return (
                 <article key={product.id} className="overflow-hidden rounded-xl border border-[#303030] bg-[#181818]">
-                  <Link href={`/${locale}/products/${encodeURIComponent(product.id)}`} className="block h-full hover:bg-[#202020]">
+                  <Link href={`/${locale}/products/${encodeURIComponent(product.slug || product.id)}`} className="block h-full hover:bg-[#202020]">
                     <div className="aspect-video bg-black">
                       {product.thumbnail ? (
                         <img

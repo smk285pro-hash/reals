@@ -5,11 +5,12 @@ import { localizedUrl, siteUrl } from '@/i18n/seo'
 
 export { siteUrl }
 
-export const getPublishedProduct = cache(async (id: string) => {
+export const getPublishedProduct = cache(async (token: string) => {
   try {
     return await db.product.findFirst({
       where: {
-        id,
+        // Public URLs use the slug, but old CUID links keep resolving.
+        OR: [{ slug: token }, { id: token }],
         published: true,
         reviewStatus: 'APPROVED',
       },
@@ -39,17 +40,22 @@ export const getPublishedProduct = cache(async (id: string) => {
       },
     })
   } catch (error) {
-    console.error(`[product-seo] Could not load product ${id}`, error)
+    console.error(`[product-seo] Could not load product ${token}`, error)
     return null
   }
 })
 
-export function productUrl(id: string) {
-  return `${siteUrl}/products/${encodeURIComponent(id)}`
+/** Public URL token for a product: the human-readable slug, falling back to the id. */
+export function productToken(product: { slug: string | null; id: string }): string {
+  return product.slug || product.id
 }
 
-export function localizedProductUrl(locale: Locale, id: string) {
-  return localizedUrl(locale, `/products/${encodeURIComponent(id)}`)
+export function productUrl(token: string) {
+  return `${siteUrl}/products/${encodeURIComponent(token)}`
+}
+
+export function localizedProductUrl(locale: Locale, token: string) {
+  return localizedUrl(locale, `/products/${encodeURIComponent(token)}`)
 }
 
 export function absoluteAssetUrl(value: string | null | undefined) {

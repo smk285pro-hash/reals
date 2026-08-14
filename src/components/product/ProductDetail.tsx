@@ -190,7 +190,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
     .toUpperCase() || 'RF'
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/products/${encodeURIComponent(product.id)}`
+    const url = `${window.location.origin}/products/${encodeURIComponent(product.slug || product.id)}`
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
