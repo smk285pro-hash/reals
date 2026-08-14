@@ -32,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       type: 'website',
       url: canonical,
-      title: `${copy.homeTitle} | RealS`,
+      title: copy.homeTitle,
       description: copy.homeDescription,
       siteName,
       locale: localeTags[locale],
@@ -124,20 +124,6 @@ export default async function HomePage() {
         initialTotal={totalCount}
         locale={locale}
       />
-
-      {/* Semantic Server HTML for Search Engine Crawlers */}
-      <section className="sr-only" aria-label="SEO content">
-        <p>{copy.homeDescription}</p>
-        <div>
-          {initialProducts.map((product) => (
-            <article key={product.id}>
-              <h2>{product.title}</h2>
-              <p>{product.description}</p>
-              <a href={localizedProductUrl(locale, product.id)}>{product.title}</a>
-            </article>
-          ))}
-        </div>
-      </section>
     </>
   )
 }

@@ -166,9 +166,9 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
 
           <div className="min-w-0 flex-1 space-y-0.5">
-            <h3 className="line-clamp-2 break-words text-sm font-medium leading-snug text-[#f1f1f1]">
+            <h2 className="line-clamp-2 break-words text-sm font-medium leading-snug text-[#f1f1f1]">
               {product.title}
-            </h3>
+            </h2>
             <div className="flex items-center gap-1 text-xs text-[#aaa]">
               <span className="truncate">{product.seller.name}</span>
               <BadgeCheck className="h-3 w-3 shrink-0 text-[#3ea6ff]" />

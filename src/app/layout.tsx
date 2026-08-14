@@ -107,14 +107,6 @@ const websiteJsonLd = {
   description: siteDescription,
   publisher: { '@id': `${siteUrl}/#organization` },
   inLanguage: locales,
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: {
-      '@type': 'EntryPoint',
-      urlTemplate: `${siteUrl}/search?q={search_term_string}`,
-    },
-    'query-input': 'required name=search_term_string',
-  },
 }
 
 export default async function RootLayout({

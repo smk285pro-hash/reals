@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Navbar } from '@/components/layout/Navbar'
 import { CategoryBar } from '@/components/layout/CategoryBar'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -14,13 +15,7 @@ import { TrendingSection } from '@/components/product/TrendingSection'
 import { RecentlyViewed } from '@/components/product/RecentlyViewed'
 import { CartDrawer } from '@/components/cart/CartDrawer'
 import { CheckoutModal } from '@/components/cart/CheckoutModal'
-import { SellerDashboard } from '@/components/seller/SellerDashboard'
-import AdminDashboard from '@/app/admin/page'
 import { ScrollToTop } from '@/components/ui-custom/ScrollToTop'
-import { LoginModal } from '@/components/auth/LoginModal'
-import { RegisterModal } from '@/components/auth/RegisterModal'
-import { ForgotPasswordModal } from '@/components/auth/ForgotPasswordModal'
-import { SellerApplyModal } from '@/components/auth/SellerApplyModal'
 import { useAppStore, useWishlistStore, useRecentlyViewedStore } from '@/stores'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Product, Category } from '@/types'
@@ -28,6 +23,31 @@ import { Search, PackageOpen, Heart } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { useI18n } from '@/components/providers/I18nProvider'
 import type { Locale } from '@/i18n/config'
+import { seoCopy } from '@/i18n/seo'
+
+// Heavy modules that only render on demand (admin/seller views, auth modals) —
+// keep them out of the homepage bundle so the landing page loads faster.
+const AdminDashboard = dynamic(() => import('@/app/admin/page'), { ssr: false })
+const SellerDashboard = dynamic(
+  () => import('@/components/seller/SellerDashboard').then((m) => m.SellerDashboard),
+  { ssr: false },
+)
+const LoginModal = dynamic(
+  () => import('@/components/auth/LoginModal').then((m) => m.LoginModal),
+  { ssr: false },
+)
+const RegisterModal = dynamic(
+  () => import('@/components/auth/RegisterModal').then((m) => m.RegisterModal),
+  { ssr: false },
+)
+const ForgotPasswordModal = dynamic(
+  () => import('@/components/auth/ForgotPasswordModal').then((m) => m.ForgotPasswordModal),
+  { ssr: false },
+)
+const SellerApplyModal = dynamic(
+  () => import('@/components/auth/SellerApplyModal').then((m) => m.SellerApplyModal),
+  { ssr: false },
+)
 
 interface ClientHomePageProps {
   initialProducts: Product[]
@@ -167,10 +187,10 @@ export function ClientHomePage({
               {/* Header section for Accessibility & SEO */}
               <div className="px-4 pt-6 md:px-6">
                 <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-                  {t('homeTitle') || 'RealS — REAPER Plugins & Scripts Marketplace'}
+                  {seoCopy(locale).homeTitle}
                 </h1>
                 <p className="mt-2 text-sm text-[#aaa]">
-                  {t('homeDescription') || 'Discover professional plugins, JSFX, ReaScript, extensions and templates built for REAPER.'}
+                  {seoCopy(locale).homeDescription}
                 </p>
               </div>
 
