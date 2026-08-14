@@ -50,6 +50,9 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: localizedAlternates(locale),
     verification: {
       google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION || 'Wj1kBciTa23yEPyuhdQozio9fukgfcJ3zPDOoIkb0iU',
+      other: {
+        'msvalidate.01': 'D0E0BE6F3CBB9C3ACCD90560EF8F5277',
+      },
     },
     openGraph: {
       type: 'website',
