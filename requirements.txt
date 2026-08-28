@@ -1,0 +1,17 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+librosa>=0.10.1
+soundfile>=0.12.1
+numpy>=1.24.0,<2.0.0
+scipy>=1.12.0
+soxr>=0.3.7
+pydantic>=2.6.0,<3.0.0
+pytest>=8.0.0
+httpx>=0.27.0
+torch>=2.1.0
+torchaudio>=2.1.0
+demucs>=4.0.0
+einops>=0.7.0
+julius>=0.2.7
+spleeter>=2.4.0
