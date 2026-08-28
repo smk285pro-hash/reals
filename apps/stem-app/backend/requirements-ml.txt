@@ -1,0 +1,20 @@
+# ==============================================================================
+# Machine Learning Dependencies for AI Audio Lab Studio 2026 (Stage 3)
+# ==============================================================================
+# Installation Guides:
+# --------------------
+# CPU only:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+#
+# CUDA 12.4 (NVIDIA GPU Acceleration):
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+#
+# Then install remaining ML libraries:
+#   pip install -r requirements-ml.txt
+# ==============================================================================
+
+torch>=2.3
+torchaudio>=2.3
+demucs==4.0.1
+BeatNet==1.0.1
+einops>=0.8
