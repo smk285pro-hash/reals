@@ -1,0 +1,17 @@
+modal>=0.73
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-multipart==0.0.20
+numpy>=1.26,<2.1
+scipy>=1.11
+librosa==0.10.2.post1
+soundfile>=0.12.1
+pyloudnorm>=0.1.0
+pretty_midi>=0.2.10
+aiofiles>=23.2.1
+httpx>=0.27
+torch>=2.3
+torchaudio>=2.3
+demucs==4.0.1
+einops>=0.8

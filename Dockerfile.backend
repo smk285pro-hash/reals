@@ -1,0 +1,34 @@
+FROM python:3.10-slim
+
+# Install core audio DSP and system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy dependency specifications
+COPY backend/requirements.txt backend/requirements-ml.txt ./
+
+# Optional Machine Learning dependencies install (Demucs, BeatNet, PyTorch)
+ARG INSTALL_ML=false
+RUN if [ "$INSTALL_ML" = "true" ] ; then \
+        echo "Installing GPU/CPU PyTorch and ML dependencies..." && \
+        pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+        pip install --no-cache-dir -r requirements-ml.txt ; \
+    else \
+        echo "Skipping ML packages (running in pure DSP fallback mode)." ; \
+    fi
+
+# Install primary backend dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application source code
+COPY backend/ .
+
+EXPOSE 3031
+
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3031"]
