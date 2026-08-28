@@ -1,0 +1,21 @@
+{
+  "name": "reals-web",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "dev:main": "pnpm --filter main-app dev",
+    "dev:stem": "pnpm --filter stem-app dev"
+  },
+  "devDependencies": {
+    "turbo": "^2"
+  }
+}

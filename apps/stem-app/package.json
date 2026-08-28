@@ -1,9 +1,10 @@
 {
-  "name": "ai-audio-lab-studio-2026",
+  "name": "stem-app",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev -p 3100",
+    "dev:backend": "python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 3031 --reload",
     "backend": "python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 3031 --reload",
     "build": "next build",
     "start": "next start -p 3000",
