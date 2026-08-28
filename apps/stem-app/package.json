@@ -1,0 +1,11 @@
+{
+  "name": "stem-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Audio Lab (stem separation) - Python FastAPI backend + static SPA. The npm scripts below are thin wrappers around python commands; all real logic lives in Python. Requires Python 3.10+ and dependencies from requirements.txt (pip install -r requirements.txt).",
+  "scripts": {
+    "dev": "python3 main.py",
+    "dev:uvicorn": "python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000",
+    "test": "python3 run_tests.py"
+  }
+}

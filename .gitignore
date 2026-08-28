@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Turborepo
+.turbo/
+
+# Env & secrets (never commit)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
