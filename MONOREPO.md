@@ -5,12 +5,15 @@ Gộp 2 dự án thành 1 monorepo, giữ nguyên toàn bộ git history:
 | Ứng dụng | Đường dẫn | Stack | Port (dev) | Vai trò |
 |---|---|---|---|---|
 | **main-app** (reals.media) | `apps/main-app/` | Next.js 16 + React 19 + Prisma 6 + PostgreSQL | 3000 | Nguồn dữ liệu chính (users, products, purchases). Auth = NextAuth v4 (Google OAuth + email/password) |
-| **stem-app** (stem.reals.media) | `apps/stem-app/` | Python FastAPI + SPA tĩnh | 8000 | Tách nhạc AI (Demucs). ML workload — chạy server Python riêng (Oracle Cloud GPU), không chạy được trên Vercel serverless |
+| **stem-app** (stem.reals.media) | `apps/stem-app/` | Next.js 15 frontend + FastAPI backend (Python) | frontend 3100, backend 3031 | AI Audio Lab Studio 2026 — tách nguồn âm (Demucs 2/4/6/8 stems), phân tích hoà âm/nhịp (Chords Viterbi HMM, BPM, Key), xuất MIDI SMF-1 |
+
+> Lưu ý: stem-app là ứng dụng 2 tiến trình — frontend Next.js (`src/`) gọi backend FastAPI (`backend/`) qua `NEXT_PUBLIC_API_URL`. Backend chứa ML workload (torch/demucs) nên phải chạy server Python riêng (Oracle Cloud GPU hoặc Modal), không chạy được trên Vercel serverless.
 
 ## Git history
 
 - `apps/main-app/` — di chuyển bằng `git mv` từ root repo `reals` (88 commits, rename detection giữ `git log --follow` hoạt động).
-- `apps/stem-app/` — merge commit với `--allow-unrelated-histories`, parent thứ 2 trỏ tới commit gốc của repo `reals-audio-lab` (giữ nguyên vẹn lịch sử). Repo gốc `reals-audio-lab` giữ nguyên, không đụng tới.
+- `apps/stem-app/` — merge commit với `--allow-unrelated-histories`, parent thứ 2 trỏ tới commit gốc của repo `reals-lab-ai` (giữ nguyên vẹn lịch sử). Repo `reals-lab-ai` gốc giữ nguyên, không đụng tới.
+- ⚠️ Lịch sử nhánh đã được viết lại 1 lần (2026-08-29): import ban đầu dùng nhầm repo cũ `reals-audio-lab` (đã lỗi thời), đã thay bằng `reals-lab-ai`. Branch local `merge-monorepo-backup-wrongrepo` giữ lại trạng thái cũ để đối chiếu, có thể xoá khi đã xác nhận.
 
 ## Lệnh thường dùng
 
@@ -18,33 +21,50 @@ Gộp 2 dự án thành 1 monorepo, giữ nguyên toàn bộ git history:
 pnpm install                      # cài dependencies toàn workspace
 
 pnpm dev --filter main-app        # chạy main-app (next dev :3000) qua turbo
-pnpm dev --filter stem-app        # chạy stem-app (uvicorn :8000) qua turbo
 pnpm --filter main-app dev        # tương đương, gọi trực tiếp qua pnpm
-pnpm --filter stem-app dev
+
+pnpm --filter stem-app dev        # chạy stem-app FRONTEND (next dev :3100)
+pnpm --filter stem-app backend    # chạy stem-app BACKEND (uvicorn :3031)
+                                  # (cần python + uvicorn trong PATH, hoặc activate venv có đủ deps)
 
 pnpm build                        # build tất cả apps (turbo cache)
 pnpm --filter main-app build      # build riêng main-app
+pnpm --filter stem-app build      # build riêng stem-app frontend
 ```
 
-Lưu ý stem-app là ứng dụng Python: trước lần chạy đầu cần cài dependencies:
+Frontend stem-app dev gọi backend tại `NEXT_PUBLIC_API_URL` (mặc định same-origin). Khi dev local, tạo `apps/stem-app/.env.local`:
+
+```
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3031
+```
+
+Dependencies Python cho backend stem-app (trước lần chạy đầu):
 
 ```bash
 cd apps/stem-app
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
+
+# (tuỳ chọn) ML GPU — CPU-only: cài torch nhẹ trước để tránh kéo CUDA wheels ~2GB
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install -r backend/requirements-ml.txt
 ```
 
-(CPU-only: có thể cài torch nhẹ trước — `pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu` — rồi mới `pip install -r requirements.txt` để tránh kéo CUDA wheels ~2GB.)
+Backend tự fallback sang DSP (HPSS + librosa) khi thiếu torch/demucs/BeatNet — không crash.
 
 ## Deploy
 
 - **main-app**: giữ nguyên Vercel. ⚠️ Khi merge nhánh `merge-monorepo` vào `main`, phải đổi **Root Directory** của Vercel project thành `apps/main-app` trong cùng cửa sổ bảo trì (vì code đã chuyển từ root vào subfolder). Production hiện tại không bị ảnh hưởng cho tới khi merge.
-- **stem-app**: deploy trên server Python riêng (Oracle Cloud GPU), trỏ DNS `stem.reals.media` về server đó. SSO với main-app qua token exchange (xem `packages/auth-client` — sẽ thêm ở các bước sau).
+- **stem-app**: 2 thành phần tách bạch:
+  - **Backend** (FastAPI, port 3031): deploy trên Oracle Cloud GPU VPS (docker-compose / Dockerfile.backend sẵn trong repo) hoặc Modal (`modal_app.py`). Trỏ DNS `stem.reals.media` (hoặc subdomain API riêng) về server đó.
+  - **Frontend** (Next.js): deploy được trên Vercel project riêng hoặc cùng VPS; set `NEXT_PUBLIC_API_URL` trỏ tới backend ở trên. `.env.production` gốc của repo đang trỏ tới Modal URL — cập nhật theo phương án deploy cuối cùng.
+  - SSO với main-app qua token exchange (xem `packages/auth-client` — sẽ thêm ở các bước sau).
 
 ## Lockfiles
 
 - `pnpm-lock.yaml` (root) — canonical, dùng cho mọi lệnh pnpm.
 - `apps/main-app/package-lock.json` + `bun.lock` — legacy từ thời single-repo, giữ lại để tham chiếu; không dùng nữa.
+- `apps/stem-app/package-lock.json` — legacy từ repo nguồn (dùng npm), giữ lại để tham chiếu; không dùng nữa.
 
 ## Cấu trúc dự kiến (hoàn thiện dần theo các bước)
 
@@ -52,7 +72,7 @@ pip install -r requirements.txt
 reals/
   apps/
     main-app/          # Next.js 16 — nguồn dữ liệu chính
-    stem-app/          # FastAPI + SPA — app con
+    stem-app/          # Next.js 15 frontend + FastAPI backend — app con
   packages/
     ui/                # (Bước 5) design tokens + components dùng chung
     auth-client/       # (Bước 3) SDK: verifyToken, getUserTier, redirectToLogin
