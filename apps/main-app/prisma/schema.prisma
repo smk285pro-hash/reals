@@ -30,6 +30,8 @@ model User {
   purchases            Purchase[]
   analyticsEvents      AnalyticsEvent[]
   analyticsSessions    AnalyticsSession[]
+  subscription         Subscription?
+  usageEvents          UsageEvent[]
 }
 
 model Account {
@@ -257,4 +259,37 @@ model Notification {
 
   @@index([userId])           // Fast lookup by user
   @@index([userId, read])     // Fast unread count query
+}
+
+// ---------------------------------------------------------------------------
+// Tier / Subscription system (thêm ở Bước 2 monorepo — additive, không đụng
+// bảng hiện có). main-app là nguồn sự thật duy nhất về tier của user.
+// ---------------------------------------------------------------------------
+
+model Subscription {
+  id        String    @id @default(cuid())
+  userId    String    @unique // 1 dòng subscription/user (update in place)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier      String    @default("FREE") // FREE | BASIC | MAX | ULTRA
+  status    String    @default("ACTIVE") // ACTIVE | EXPIRED | CANCELLED
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime? // null = không hết hạn
+  source    String?   // MANUAL_GRANT | PAYMENT | PROMO — phục vụ audit
+  note      String?   // Ghi chú của admin khi cấp/đổi tier
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([status, tier])
+}
+
+model UsageEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  app       String   @default("stem-app") // app phát sinh sự kiện
+  action    String   @default("separation") // separation | analysis_deep | ...
+  meta      String?  // JSON string: model, duration, file size... (audit)
+  createdAt DateTime @default(now())
+
+  @@index([userId, app, action, createdAt])
 }
