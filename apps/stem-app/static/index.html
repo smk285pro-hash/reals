@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Audio Lab 2026 - SOTA Deep Music Studio</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Wavesurfer.js 7.x CDN -->
+  <script src="https://unpkg.com/wavesurfer.js@7"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            studio: {
+              bg: '#07090e',
+              card: '#0d121f',
+              border: '#1f293d',
+              cyan: '#06b6d4',
+              purple: '#8b5cf6',
+              gold: '#eab308',
+              rose: '#f43f5e',
+              emerald: '#10b981'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-[#07090e] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
+
+  <!-- 1. Header & Telemetry Status -->
+  <header class="border-b border-gray-800/80 bg-gray-900/60 backdrop-blur px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-50">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <i data-lucide="music" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-wider bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
+          AI AUDIO LAB 2026
+        </h1>
+        <p class="text-xs text-slate-400">SOTA Multi-Task MIR (HTDemucs · BeatNet+ · 170+ Chords)</p>
+      </div>
+      <span id="dsp-model-badge" class="ml-2 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-cyan-950/80 text-cyan-400 border border-cyan-800/50">
+        SOTA 2026 Deep Engine
+      </span>
+    </div>
+
+    <!-- Live Telemetry Badges -->
+    <div class="flex items-center space-x-3 text-xs">
+      <div id="connection-status" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-slate-300 font-mono">BACKEND: ONLINE</span>
+      </div>
+      <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700">
+        <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-400"></i>
+        <span class="text-slate-300 font-mono">AI: HTDEMUCS + VITERBI</span>
+      </div>
+      <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700">
+        <i data-lucide="activity" class="w-3.5 h-3.5 text-cyan-400"></i>
+        <span class="text-slate-300 font-mono">WEB AUDIO: 24-BIT</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Studio Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+    <!-- 2. Drag & Drop Upload Zone -->
+    <section id="upload-section" class="bg-gray-900/50 border border-gray-800/80 rounded-2xl p-6 backdrop-blur transition-all duration-300 studio-glow-card">
+      <div id="dropzone" class="border-2 border-dashed border-gray-700 hover:border-cyan-500 rounded-xl p-8 text-center cursor-pointer transition-all duration-200 bg-gray-950/40 hover:bg-cyan-950/10 group">
+        <input type="file" id="audio-input" class="hidden" accept="audio/*,.mp3,.wav,.flac,.m4a,.ogg">
+        <div class="flex flex-col items-center justify-center space-y-3">
+          <div class="w-14 h-14 rounded-2xl bg-gray-800/80 group-hover:bg-cyan-500/20 group-hover:text-cyan-400 flex items-center justify-center text-slate-400 transition-colors">
+            <i data-lucide="upload-cloud" class="w-7 h-7"></i>
+          </div>
+          <div class="text-sm">
+            <span class="font-semibold text-cyan-400">Click to upload</span> or drag and drop audio file here
+          </div>
+          <p class="text-xs text-slate-500">Supports WAV, MP3, FLAC, M4A, OGG (Up to 500MB)</p>
+          <div class="pt-2 flex flex-wrap items-center justify-center gap-3">
+            <button id="btn-load-demo" type="button" class="px-3.5 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition flex items-center space-x-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Load Demo Synth Progression</span>
+            </button>
+            <button id="btn-deep-analyze" type="button" class="hidden px-3.5 py-1.5 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition flex items-center space-x-1.5">
+              <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+              <span>Re-run SOTA Deep AI Analysis</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload & SSE Analysis Progress Stepper -->
+      <div id="progress-container" class="hidden mt-4 space-y-2">
+        <div class="flex justify-between text-xs text-slate-400 font-mono">
+          <span id="progress-status-text" class="flex items-center space-x-2">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+            <span>Processing...</span>
+          </span>
+          <span id="progress-percentage" class="text-cyan-300 font-bold">0%</span>
+        </div>
+        <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden border border-gray-700">
+          <div id="progress-bar-fill" class="bg-gradient-to-r from-cyan-500 via-purple-500 to-indigo-500 h-2.5 rounded-full transition-all duration-300 w-0"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Music Telemetry Bar -->
+    <section class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <!-- Tempo (BPM) Card -->
+      <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur flex items-center space-x-4 studio-glow-card">
+        <div class="w-12 h-12 rounded-xl bg-cyan-950/60 border border-cyan-800/40 flex items-center justify-center text-cyan-400">
+          <i data-lucide="activity" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 font-medium flex items-center space-x-1.5">
+            <span>TEMPO</span>
+            <span id="metronome-dot" class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span>
+          </div>
+          <div id="val-bpm" class="text-xl font-bold font-mono text-cyan-300">-- BPM</div>
+        </div>
+      </div>
+
+      <!-- Master Key Card -->
+      <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur flex items-center space-x-4 studio-glow-card">
+        <div class="w-12 h-12 rounded-xl bg-purple-950/60 border border-purple-800/40 flex items-center justify-center text-purple-400">
+          <i data-lucide="key" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 font-medium">MASTER KEY</div>
+          <div id="val-key" class="text-xl font-bold font-mono text-purple-300">--</div>
+        </div>
+      </div>
+
+      <!-- Time Signature Card -->
+      <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur flex items-center space-x-4 studio-glow-card">
+        <div class="w-12 h-12 rounded-xl bg-amber-950/60 border border-amber-800/40 flex items-center justify-center text-amber-400">
+          <i data-lucide="clock" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 font-medium">TIME SIGNATURE</div>
+          <div id="val-meter" class="text-xl font-bold font-mono text-amber-300">4/4</div>
+        </div>
+      </div>
+
+      <!-- Duration Card -->
+      <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-4 backdrop-blur flex items-center space-x-4 studio-glow-card">
+        <div class="w-12 h-12 rounded-xl bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
+          <i data-lucide="timer" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400 font-medium">DURATION</div>
+          <div id="val-duration" class="text-xl font-bold font-mono text-emerald-300">00:00.00</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Interactive Waveform & Chord Timeline Studio -->
+    <section class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-6 backdrop-blur space-y-4 studio-glow-card">
+      <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+        <h2 class="text-sm font-semibold tracking-wider text-slate-300 uppercase flex items-center space-x-2">
+          <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+          <span>Interactive Waveform & Beat / Downbeat Grid</span>
+        </h2>
+        <!-- Zoom Slider -->
+        <div class="flex items-center space-x-2 text-xs text-slate-400">
+          <i data-lucide="zoom-out" class="w-3.5 h-3.5"></i>
+          <input type="range" id="zoom-slider" min="0" max="100" value="0" class="w-24 accent-cyan-400 cursor-pointer">
+          <i data-lucide="zoom-in" class="w-3.5 h-3.5"></i>
+        </div>
+      </div>
+
+      <!-- Waveform Container with Beat Grid Overlay -->
+      <div class="relative bg-gray-950/80 rounded-xl overflow-hidden border border-gray-800">
+        <div id="waveform-container" class="w-full"></div>
+        <div id="beat-grid-overlay" class="absolute inset-0 pointer-events-none"></div>
+      </div>
+
+      <!-- Canvas Chord Timeline -->
+      <div class="space-y-2 pt-2">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-medium px-1">
+          <span class="flex items-center space-x-1.5">
+            <i data-lucide="disc" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span>170+ Chord Progression & Slash Inversions (60 FPS Viterbi Trellis)</span>
+          </span>
+          <span class="text-slate-500 font-mono">Click block to seek</span>
+        </div>
+        <div class="bg-gray-950/80 rounded-xl overflow-hidden border border-gray-800">
+          <canvas id="chord-canvas" class="w-full h-24 cursor-pointer block"></canvas>
+        </div>
+
+        <!-- Chord Category Color Legend -->
+        <div class="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-400">
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-cyan-400 inline-block"></span><span>Major</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-purple-400 inline-block"></span><span>Minor</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-pink-400 inline-block"></span><span>7th / 9th / 11th</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-amber-400 inline-block"></span><span>Slash / Inversions (C/E)</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-emerald-400 inline-block"></span><span>Sus (sus2 / sus4)</span></span>
+          <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-red-400 inline-block"></span><span>Dim / Aug</span></span>
+        </div>
+      </div>
+
+      <!-- Transport Controls Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
+        <div class="flex items-center space-x-3">
+          <button id="btn-play" type="button" class="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-cyan-500/25 transition active:scale-95" title="Play / Pause (Spacebar)">
+            <i data-lucide="play" id="play-icon" class="w-5 h-5 ml-0.5"></i>
+          </button>
+          <button id="btn-stop" type="button" class="w-10 h-10 rounded-xl bg-gray-800 hover:bg-gray-700 text-slate-300 flex items-center justify-center border border-gray-700 transition" title="Stop & Reset">
+            <i data-lucide="square" class="w-4 h-4"></i>
+          </button>
+          <div class="font-mono text-sm font-semibold text-slate-200 px-3 py-1.5 rounded-lg bg-gray-950/80 border border-gray-800">
+            <span id="time-current">00:00.00</span> / <span id="time-total" class="text-slate-500">00:00.00</span>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 text-xs text-slate-400">
+          <span class="px-2 py-1 rounded bg-gray-800 border border-gray-700 font-mono">SPACE</span>
+          <span>Play/Pause Shortcut</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. 4-Stem Mixer (Active AI Separated Tracks) -->
+    <section class="bg-gray-900/60 border border-gray-800/80 rounded-2xl p-6 backdrop-blur space-y-4 studio-glow-card">
+      <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="layers" class="w-4 h-4 text-purple-400"></i>
+          <h2 class="text-sm font-semibold tracking-wider text-slate-300 uppercase">4-Stem Source Separation Mixer</h2>
+        </div>
+        <span id="stem-status-text" class="text-xs text-slate-500">4 Synchronized Audio Channels (Vocals, Drums, Bass, Other)</span>
+      </div>
+
+      <!-- 4 Channel Strips Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Stem 1: Vocals -->
+        <div class="bg-gray-950/60 border border-pink-950/40 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 text-pink-400">
+              <i data-lucide="mic" class="w-4 h-4"></i>
+              <span class="font-semibold text-sm">Vocals</span>
+            </div>
+            <span id="vol-label-vocals" class="text-xs font-mono text-pink-300">80%</span>
+          </div>
+          <div class="vu-bar"><div id="vu-vocals" class="vu-bar-fill"></div></div>
+          <input type="range" id="fader-vocals" min="0" max="100" value="80" class="w-full accent-pink-500 cursor-pointer">
+          <div class="flex space-x-2">
+            <button id="solo-vocals" class="flex-1 py-1 text-xs font-bold rounded bg-gray-800 hover:bg-yellow-500/20 text-slate-300 hover:text-yellow-400 border border-gray-700 transition">S</button>
+            <button id="mute-vocals" class="flex-1 py-1 text-xs font-bold rounded bg-gray-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-gray-700 transition">M</button>
+          </div>
+        </div>
+
+        <!-- Stem 2: Drums -->
+        <div class="bg-gray-950/60 border border-amber-950/40 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 text-amber-400">
+              <i data-lucide="drum" class="w-4 h-4"></i>
+              <span class="font-semibold text-sm">Drums</span>
+            </div>
+            <span id="vol-label-drums" class="text-xs font-mono text-amber-300">80%</span>
+          </div>
+          <div class="vu-bar"><div id="vu-drums" class="vu-bar-fill"></div></div>
+          <input type="range" id="fader-drums" min="0" max="100" value="80" class="w-full accent-amber-500 cursor-pointer">
+          <div class="flex space-x-2">
+            <button id="solo-drums" class="flex-1 py-1 text-xs font-bold rounded bg-gray-800 hover:bg-yellow-500/20 text-slate-300 hover:text-yellow-400 border border-gray-700 transition">S</button>
+            <button id="mute-drums" class="flex-1 py-1 text-xs font-bold rounded bg-gray-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-gray-700 transition">M</button>
+          </div>
+        </div>
+
+        <!-- Stem 3: Bass -->
+        <div class="bg-gray-950/60 border border-purple-950/40 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 text-purple-400">
+              <i data-lucide="disc" class="w-4 h-4"></i>
+              <span class="font-semibold text-sm">Bass</span>
+            </div>
+            <span id="vol-label-bass" class="text-xs font-mono text-purple-300">80%</span>
+          </div>
+          <div class="vu-bar"><div id="vu-bass" class="vu-bar-fill"></div></div>
+          <input type="range" id="fader-bass" min="0" max="100" value="80" class="w-full accent-purple-500 cursor-pointer">
+          <div class="flex space-x-2">
+            <button id="solo-bass" class="flex-1 py-1 text-xs font-bold rounded bg-gray-800 hover:bg-yellow-500/20 text-slate-300 hover:text-yellow-400 border border-gray-700 transition">S</button>
+            <button id="mute-bass" class="flex-1 py-1 text-xs font-bold rounded bg-gray-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-gray-700 transition">M</button>
+          </div>
+        </div>
+
+        <!-- Stem 4: Other -->
+        <div class="bg-gray-950/60 border border-cyan-950/40 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 text-cyan-400">
+              <i data-lucide="music-2" class="w-4 h-4"></i>
+              <span class="font-semibold text-sm">Other</span>
+            </div>
+            <span id="vol-label-other" class="text-xs font-mono text-cyan-300">80%</span>
+          </div>
+          <div class="vu-bar"><div id="vu-other" class="vu-bar-fill"></div></div>
+          <input type="range" id="fader-other" min="0" max="100" value="80" class="w-full accent-cyan-500 cursor-pointer">
+          <div class="flex space-x-2">
+            <button id="solo-other" class="flex-1 py-1 text-xs font-bold rounded bg-gray-800 hover:bg-yellow-500/20 text-slate-300 hover:text-yellow-400 border border-gray-700 transition">S</button>
+            <button id="mute-other" class="flex-1 py-1 text-xs font-bold rounded bg-gray-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-gray-700 transition">M</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800/60 py-4 px-6 text-center text-xs text-slate-500">
+    AI Audio Lab 2026 — SOTA Multi-Task MIR Studio
+  </footer>
+
+  <!-- Modular JavaScript App -->
+  <script src="/static/js/chordTimeline.js"></script>
+  <script src="/static/js/stemMixer.js"></script>
+  <script src="/static/js/wavesurferController.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script>
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>

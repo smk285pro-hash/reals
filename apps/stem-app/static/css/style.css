@@ -1,0 +1,140 @@
+/* 
+ * AI Audio Lab 2026 — Studio Theme Stylesheet
+ * Dark Obsidian / Cyber-Neon Styling for Web Audio Studio
+ */
+
+:root {
+  --bg-main: #07090e;
+  --bg-card: #0d121f;
+  --bg-surface: #131b2e;
+  --border-card: #1f293d;
+  --neon-cyan: #06b6d4;
+  --neon-purple: #8b5cf6;
+  --neon-pink: #ec4899;
+  --neon-gold: #eab308;
+  --neon-red: #ef4444;
+  --neon-emerald: #10b981;
+}
+
+body {
+  background-color: var(--bg-main);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.07) 0px, transparent 50%);
+  color: #f1f5f9;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0e17;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f293d;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Metronome Animation */
+@keyframes pulse-metronome {
+  0% { transform: scale(1); opacity: 1; box-shadow: 0 0 12px rgba(6, 182, 212, 0.8); }
+  50% { transform: scale(0.85); opacity: 0.3; box-shadow: 0 0 2px rgba(6, 182, 212, 0.2); }
+  100% { transform: scale(1); opacity: 1; box-shadow: 0 0 12px rgba(6, 182, 212, 0.8); }
+}
+
+.metronome-active {
+  animation: pulse-metronome 0.5s ease-in-out infinite;
+}
+
+/* Glow Card Utility */
+.studio-glow-card {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.studio-glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.25);
+}
+
+/* Custom Sliders / Faders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #1e293b;
+  border-radius: 9999px;
+  height: 6px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+  border: 2px solid #0f172a;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+#fader-vocals::-webkit-slider-thumb { background: #ec4899; box-shadow: 0 0 10px #ec4899; }
+#fader-drums::-webkit-slider-thumb { background: #eab308; box-shadow: 0 0 10px #eab308; }
+#fader-bass::-webkit-slider-thumb { background: #8b5cf6; box-shadow: 0 0 10px #8b5cf6; }
+#fader-other::-webkit-slider-thumb { background: #06b6d4; box-shadow: 0 0 10px #06b6d4; }
+
+/* VU Meter Simulation Bar */
+.vu-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: #1e293b;
+  overflow: hidden;
+  position: relative;
+}
+
+.vu-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, #10b981 60%, #eab308 85%, #ef4444 100%);
+  transition: width 0.08s ease-out;
+}
+
+/* Active Chord Block Glow Animation */
+@keyframes chord-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.7)); }
+  50% { filter: drop-shadow(0 0 18px rgba(6, 182, 212, 1)); }
+}
+
+.active-chord-block {
+  animation: chord-glow-pulse 1s infinite alternate ease-in-out;
+}
+
+/* Beat Grid Lines */
+.beat-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(234, 179, 8, 0.35);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.downbeat-grid-line {
+  background: rgba(234, 179, 8, 0.75);
+  width: 2px;
+}
