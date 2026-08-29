@@ -1,0 +1,21 @@
+{
+  "name": "@reals/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Design tokens + components dùng chung cho apps reals (main-app Tailwind v4 + stem-app Tailwind v3 — tokens là CSS variables nên dùng được với cả hai)",
+  "type": "module",
+  "main": "./src/index.tsx",
+  "types": "./src/index.tsx",
+  "exports": {
+    ".": "./src/index.tsx",
+    "./tokens.css": "./tokens.css",
+    "./tailwind.preset.js": "./tailwind.preset.js"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.1",
+    "react": "^19.0.0"
+  }
+}

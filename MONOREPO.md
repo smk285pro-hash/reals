@@ -75,10 +75,20 @@ reals/
     stem-app/          # Next.js 15 frontend + FastAPI backend — app con
   packages/
     auth-client/       # (Bước 3) @reals/auth-client — SSO client TS cho frontend
-    ui/                # (Bước 5) design tokens + components dùng chung
+    ui/                # (Bước 5) @reals/ui — design tokens + TierBadge dùng chung
   package.json         # pnpm workspaces + turbo
   turbo.json
 ```
+
+## packages/ui — design tokens + components (Bước 5)
+
+Vấn đề: main-app dùng Tailwind **v4** (CSS-first), stem-app dùng Tailwind **v3** (JS config) → không share được config Tailwind trực tiếp. Giải pháp: tokens là **thuần CSS custom properties** (`tokens.css`) + component dùng inline style bám token → chạy được với mọi Tailwind version.
+
+- `tokens.css` — `--reals-*` (brand oklch, surface, trạng thái, màu 4 tier, radius, font). Import trong globals.css của app: `@import "@reals/ui/tokens.css";` (resolve qua workspace, đã test cả Turbopack v4 lẫn Next 15 v3).
+- `src/index.tsx` — `TierBadge` (badge tier + "còn X/Y lượt" / "Không giới hạn" — đang dùng thật ở stem-app Header, sẵn sàng cho trang account/pricing của main-app), `StatusDot`, `TIER_LABELS`. Không phụ thuộc Tailwind — nhận `className` tuỳ ý.
+- `tailwind.preset.js` — preset Tailwind v3 (stem-app): `presets: [require('@reals/ui/tailwind.preset.js')]` → utility `bg-reals-brand`, `text-reals-tier-max-fg`...
+
+Tích hợp hiện tại: stem-app Header dùng `TierBadge` + preset + tokens (badge đếm "còn 3/3 → 2/3 lượt" realtime theo quota, style bám token `--reals-tier-*`); main-app import tokens.css (additive, không đụng style hiện có).
 
 ## packages/auth-client — SSO client (Bước 3)
 

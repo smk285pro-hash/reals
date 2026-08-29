@@ -125,6 +125,9 @@ importers:
       '@reactuses/core':
         specifier: ^6.0.5
         version: 6.5.5(react@19.2.8)
+      '@reals/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: ^5.82.0
         version: 5.102.8(react@19.2.8)
@@ -267,6 +270,9 @@ importers:
       '@reals/auth-client':
         specifier: workspace:*
         version: link:../../packages/auth-client
+      '@reals/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -306,6 +312,15 @@ importers:
         version: 5.9.3
 
   packages/auth-client: {}
+
+  packages/ui:
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.1
+        version: 19.2.18
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
 
 packages:
 

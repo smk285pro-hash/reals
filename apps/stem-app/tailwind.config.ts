@@ -1,7 +1,10 @@
 import type { Config } from "tailwindcss";
+import realsPreset from "@reals/ui/tailwind.preset.js";
 
 const config: Config = {
   darkMode: "class",
+  // @reals/ui tokens (Bước 5) — dùng kèm @import tokens.css trong globals.css
+  presets: [realsPreset],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",

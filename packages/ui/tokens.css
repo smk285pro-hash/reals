@@ -1,0 +1,54 @@
+/*
+ * @reals/ui — design tokens dùng chung (Bước 5 monorepo).
+ *
+ * Thuần CSS custom properties → dùng được với MỌI Tailwind version
+ * (main-app v4 CSS-first, stem-app v3 JS config) và cả CSS thường.
+ * Import 1 dòng trong globals.css của app:
+ *   @import "@reals/ui/tokens.css";   (stem-app dùng đường dẫn tương đối)
+ *
+ * Quy ước tên: --reals-<nhóm>-<tên>
+ */
+
+:root {
+  /* ---- Brand ---- */
+  --reals-brand: oklch(0.72 0.16 60);        /* vàng-amber reals.media */
+  --reals-brand-strong: oklch(0.64 0.16 55);
+  --reals-brand-foreground: oklch(0.16 0.02 60);
+  --reals-accent: oklch(0.66 0.17 300);      /* tím stem-app studio */
+  --reals-accent-strong: oklch(0.58 0.18 295);
+
+  /* ---- Nền tối dùng chung (stem-app nền #0a0a0f, main-app dark) ---- */
+  --reals-bg: oklch(0.11 0.01 280);
+  --reals-surface: oklch(0.15 0.01 280);
+  --reals-surface-border: oklch(0.24 0.01 280);
+  --reals-text: oklch(0.93 0.005 280);
+  --reals-text-muted: oklch(0.68 0.01 280);
+
+  /* ---- Trạng thái ---- */
+  --reals-ok: oklch(0.72 0.16 155);
+  --reals-warn: oklch(0.78 0.15 85);
+  --reals-danger: oklch(0.65 0.2 25);
+
+  /* ---- Tier (badge hiển thị ở cả main-app & stem-app) ---- */
+  --reals-tier-free-bg: oklch(0.22 0.01 280);
+  --reals-tier-free-fg: oklch(0.78 0.01 280);
+  --reals-tier-free-border: oklch(0.42 0.01 280);
+  --reals-tier-basic-bg: oklch(0.24 0.07 240);
+  --reals-tier-basic-fg: oklch(0.82 0.09 240);
+  --reals-tier-basic-border: oklch(0.42 0.08 240);
+  --reals-tier-max-bg: oklch(0.24 0.08 300);
+  --reals-tier-max-fg: oklch(0.82 0.09 300);
+  --reals-tier-max-border: oklch(0.44 0.09 300);
+  --reals-tier-ultra-bg: oklch(0.27 0.09 75);
+  --reals-tier-ultra-fg: oklch(0.86 0.10 80);
+  --reals-tier-ultra-border: oklch(0.5 0.1 75);
+
+  /* ---- Hình học ---- */
+  --reals-radius-sm: 6px;
+  --reals-radius-md: 10px;
+  --reals-radius-full: 9999px;
+
+  /* ---- Font (để app override nếu muốn) ---- */
+  --reals-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}

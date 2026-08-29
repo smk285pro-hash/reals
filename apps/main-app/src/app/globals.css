@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* @reals/ui design tokens (Bước 5 monorepo) — dùng chung với stem-app.
+   Chỉ khai báo CSS variables; không ảnh hưởng style hiện có của main-app. */
+@import "@reals/ui/tokens.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
