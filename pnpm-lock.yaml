@@ -264,6 +264,9 @@ importers:
 
   apps/stem-app:
     dependencies:
+      '@reals/auth-client':
+        specifier: workspace:*
+        version: link:../../packages/auth-client
       clsx:
         specifier: ^2.1.1
         version: 2.1.1

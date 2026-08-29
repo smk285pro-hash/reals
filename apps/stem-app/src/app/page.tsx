@@ -25,6 +25,7 @@ import {
   startStemsOnly,
   streamProgress,
 } from "@/lib/api-client";
+import { initAuth, loadCurrentUser, type RealsAuthUser } from "@/lib/auth";
 import { parseChord, ParsedChord, transposeChord } from "@/lib/music-theory";
 import {
   ChordSegment,
@@ -82,6 +83,29 @@ export default function AudioStudioPage() {
     : chordsResult
       ? chordsResult.telemetry
       : quickTelemetry;
+
+  // 0. SSO auth (Bước 4 monorepo): đọc #token= từ URL → localStorage;
+  // thiếu token → redirect sang reals.media authorize (silent re-auth).
+  // Sau khi có token, load user + tier để hiển thị badge + số lượt còn lại.
+  const [authUser, setAuthUser] = useState<RealsAuthUser | null>(null);
+
+  useEffect(() => {
+    const token = initAuth();
+    if (!token) return; // đang redirect sang main-app — dừng mọi flow
+    let mounted = true;
+    loadCurrentUser()
+      .then((user) => {
+        if (mounted) setAuthUser(user);
+      })
+      .catch((err) => {
+        // 503 (main-app/DB lỗi) — app vẫn dùng được phần không cần tier;
+        // 401 đã tự re-auth trong authFetch
+        console.warn("[auth] Không tải được thông tin user:", err);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // 1. Upload completed handler
   const handleUploaded = (
@@ -468,6 +492,7 @@ export default function AudioStudioPage() {
     <div className="min-h-screen bg-[#0a0a0f] text-zinc-100 flex flex-col">
       {/* 1. Header */}
       <Header
+        authUser={authUser}
         onReset={handleReset}
         isProcessing={
           phase === "UPLOADING" ||

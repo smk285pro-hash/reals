@@ -11,6 +11,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@reals/auth-client": "workspace:*",
     "clsx": "^2.1.1",
     "next": "^15.1.0",
     "react": "^19.0.0",

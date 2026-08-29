@@ -5,6 +5,9 @@ browser gửi `Authorization: Bearer <token>` → FastAPI dependency `require_au
 → POST tới main-app `/api/auth/verify-session` (server-to-server, KHÔNG CORS)
 → nhận user + tier LIVE từ DB main-app.
 
+Bước 4: thêm `consume_separation_credit` — ghi nhận quota tách nhạc qua
+main-app POST /api/usage/separation (check-and-record atomic phía main-app).
+
 Thiết kế:
 - Fail-closed: main-app không trả lời / lỗi mạng / DB lỗi (503) → từ chối request
   (503), nhất quán với chính sách của main-app. KHÔNG bao giờ chấp nhận token
@@ -14,6 +17,7 @@ Thiết kế:
   hop, thêm local verify + chỉ fetch tier — hiện chưa cần.
 - Cache kết quả valid theo SHA-256(token), TTL ngắn (mặc định 60s) để giảm tải
   cho main-app (rate-limit 120 req/min/IP ở phía server backend này).
+  Quota KHÔNG dựa vào cache — luôn hỏi /api/usage/separation (số liệu live).
 
 Env (đặt trong .env của backend):
     REALS_MAIN_APP_URL    — URL gốc main-app (mặc định http://localhost:3000)
@@ -35,6 +39,7 @@ load_dotenv()
 
 MAIN_APP_URL = os.getenv("REALS_MAIN_APP_URL", "http://localhost:3000").rstrip("/")
 VERIFY_URL = f"{MAIN_APP_URL}/api/auth/verify-session"
+RECORD_USAGE_URL = f"{MAIN_APP_URL}/api/usage/separation"
 CACHE_TTL_SECONDS = float(os.getenv("REALS_AUTH_CACHE_TTL", "60"))
 REQUEST_TIMEOUT_SECONDS = float(os.getenv("REALS_AUTH_TIMEOUT", "5"))
 
@@ -144,15 +149,20 @@ async def verify_bridge_token(token: str) -> Dict[str, Any]:
 async def require_auth(authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
     """FastAPI dependency: yêu cầu Bearer token hợp lệ.
 
-    Dùng:  @router.post("/api/analyze/deep/{task_id}")
-           async def deep(task_id: str, user: Dict = Depends(require_auth)):
+    Trả về dict user (userId, email, tier, limit, usedToday, creditsRemaining,
+    expiresAt) + khoá "token" (bridge token gốc — dùng để ghi quota).
+
+    Dùng:  @router.post("/api/analyze/quick/{task_id}")
+           async def quick(task_id: str, user: Dict = Depends(require_auth)):
     """
     if not authorization or not authorization.lower().startswith("bearer "):
         raise RealsAuthRequiredError("Thiếu Authorization: Bearer <token>")
     token = authorization[7:].strip()
     if not token:
         raise RealsAuthRequiredError("Thiếu Authorization: Bearer <token>")
-    return await verify_bridge_token(token)
+    user = await verify_bridge_token(token)
+    # Không đụng cache dict — ghép token vào bản copy (cache entry giữ nguyên)
+    return {**user, "token": token}
 
 
 async def optional_auth(authorization: Optional[str] = Header(default=None)) -> Optional[Dict[str, Any]]:
@@ -169,3 +179,71 @@ async def optional_auth(authorization: Optional[str] = Header(default=None)) -> 
         return await verify_bridge_token(token)
     except HTTPException:
         return None
+
+
+class RealsQuotaExceededError(HTTPException):
+    """429 — user đã dùng hết lượt tách nhạc trong 24h qua."""
+
+    def __init__(self, info: Dict[str, Any]):
+        super().__init__(
+            status_code=429,
+            detail={
+                "message": (
+                    "Bạn đã dùng hết lượt tách nhạc miễn phí trong 24 giờ qua. "
+                    "Nâng cấp gói tại reals.media để tiếp tục."
+                ),
+                "code": "quota_exceeded",
+                "tier": info.get("tier"),
+                "limit": info.get("limit"),
+                "usedToday": info.get("usedToday"),
+                "creditsRemaining": info.get("creditsRemaining"),
+            },
+        )
+
+
+async def consume_separation_credit(user: Dict[str, Any], meta: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Ghi nhận 1 lượt tách nhạc (chặn quota) — gọi NGAY TRƯỚC khi bắt đầu GPU work.
+
+    main-app thực hiện check-and-record atomic (transaction serializable):
+      200 → còn quota, đã ghi UsageEvent → trả tier info MỚI NHẤT
+      409 → hết quota → raise RealsQuotaExceededError (429)
+      khác (401/429/503/lỗi mạng) → raise 503 (fail-closed: không chạy GPU
+      work khi không chắc còn quota)
+
+    `user` là dict do require_auth trả về (chứa khoá "token").
+    `meta` (tuỳ chọn): {"taskId", "stemMode", "endpoint"...} để audit.
+    """
+    token = user.get("token")
+    if not token:
+        raise RealsAuthRequiredError("Thiếu bridge token để ghi nhận lượt tách nhạc")
+
+    try:
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+            resp = await client.post(
+                RECORD_USAGE_URL,
+                json={"meta": meta or {}},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    except httpx.HTTPError as exc:
+        raise RealsAuthServiceUnavailableError() from exc
+
+    if resp.status_code == 200:
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise RealsAuthServiceUnavailableError() from exc
+        if not data.get("allowed"):
+            raise RealsAuthServiceUnavailableError()
+        return data
+
+    if resp.status_code == 409:
+        try:
+            data = resp.json()
+        except ValueError:
+            data = {}
+        raise RealsQuotaExceededError(data)
+
+    # 401 (token vừa hết hạn giữa phiên), 429 (rate-limit), 503 (DB) → 503/401
+    if resp.status_code == 401:
+        raise RealsAuthRequiredError("Phiên đăng nhập không hợp lệ hoặc đã hết hạn")
+    raise RealsAuthServiceUnavailableError()

@@ -1,10 +1,10 @@
 // Tier system — main-app là nguồn sự thật duy nhất về tier của user.
 //
-// Bước 2 (monorepo): cấu trúc + API. Giá trị limit dưới đây là PROVISIONAL
-// (giá trị tạm hợp lý) — sẽ được chốt lại cùng user ở Bước 4 khi gắn
-// giới hạn tính năng vào stem-app. Đổi giá trị = sửa file này + deploy,
-// không cần đụng database.
+// Bước 2 (monorepo): cấu trúc + API. Bước 4: giá trị limit dưới đây được dùng
+// để enforce quota tách nhạc ở stem backend (xem /api/usage/separation).
+// Đổi giá trị = sửa file này + deploy, không cần đụng database.
 import { db } from '@/lib/db'
+import type { Prisma } from '@prisma/client'
 
 export const TIERS = ['FREE', 'BASIC', 'MAX', 'ULTRA'] as const
 export type Tier = (typeof TIERS)[number]
@@ -16,7 +16,7 @@ export interface TierLimit {
   label: string
 }
 
-// PROVISIONAL VALUES — chốt cuối cùng ở Bước 4 cùng user
+// PROVISIONAL VALUES — chốt cùng user ở Bước 4
 export const TIER_LIMITS: Record<Tier, TierLimit> = {
   FREE: { dailySeparations: 3, label: 'Free' },
   BASIC: { dailySeparations: 10, label: 'Basic' },
@@ -42,9 +42,14 @@ function isKnownTier(value: string): value is Tier {
  *   (không cần backfill data cho user hiện có).
  * - creditsRemaining = limit - số UsageEvent(separation) trong 24h qua.
  *  (limit = null → không giới hạn → creditsRemaining = null)
+ * - `client` cho phép gọi bên trong $transaction (Bước 4: check-and-record
+ *   quota atomic ở /api/usage/separation).
  */
-export async function getUserTierInfo(userId: string): Promise<UserTierInfo> {
-  const subscription = await db.subscription.findUnique({ where: { userId } })
+export async function getUserTierInfo(
+  userId: string,
+  client: Prisma.TransactionClient | typeof db = db,
+): Promise<UserTierInfo> {
+  const subscription = await client.subscription.findUnique({ where: { userId } })
 
   let tier: Tier = 'FREE'
   let expiresAt: Date | null = null
@@ -60,7 +65,7 @@ export async function getUserTierInfo(userId: string): Promise<UserTierInfo> {
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
-  const usedToday = await db.usageEvent.count({
+  const usedToday = await client.usageEvent.count({
     where: {
       userId,
       app: 'stem-app',

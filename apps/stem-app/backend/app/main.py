@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -65,9 +66,24 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # CORS: các origin của SPA stem-app (Bước 4 monorepo — trước đây hard-code
+    # :3000 gây block khi frontend chạy :3100 / stem.reals.media).
+    # Override bằng env REALS_ALLOWED_ORIGINS (comma-separated) khi deploy.
+    default_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3100",
+        "http://127.0.0.1:3100",
+        "https://stem.reals.media",
+    ]
+    env_origins = os.getenv("REALS_ALLOWED_ORIGINS", "")
+    allow_origins = (
+        [o.strip() for o in env_origins.split(",") if o.strip()] if env_origins else default_origins
+    )
+
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_origins=allow_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -1,3 +1,4 @@
+import { authFetch, authHeaders, RealsAuthRedirectError } from "@reals/auth-client";
 import { ChordsOnlyResult, DeepAnalysisResponse, DenoiseResult, SseHandlers, StemMode, StemsOnlyResult, TelemetryData } from "./types";
 
 export interface UploadResponse {
@@ -21,6 +22,27 @@ function normalizeUrl(url: string): string {
   }
   return `${API_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
 }
+
+/**
+ * Rút message lỗi từ response FastAPI (detail có thể là string hoặc object
+ * {message} — ví dụ quota_exceeded 429 từ consume_separation_credit).
+ */
+async function apiError(res: Response, fallback: string): Promise<Error> {
+  let message = `${fallback} (HTTP ${res.status})`;
+  try {
+    const data = (await res.json()) as { detail?: string | { message?: string } };
+    if (typeof data?.detail === "string") {
+      message = data.detail;
+    } else if (data?.detail && typeof data.detail.message === "string") {
+      message = data.detail.message;
+    }
+  } catch {
+    // giữ message mặc định
+  }
+  return new Error(message);
+}
+
+export { RealsAuthRedirectError };
 
 export async function getHealth(): Promise<HealthResponse> {
   const res = await fetch(normalizeUrl("/api/health"));
@@ -58,8 +80,12 @@ export function uploadWithProgress(
         }
       } else {
         try {
-          const errData = JSON.parse(xhr.responseText) as { detail?: string };
-          reject(new Error(errData.detail || `Upload failed with status ${xhr.status}`));
+          const errData = JSON.parse(xhr.responseText) as { detail?: string | { message?: string } };
+          const message =
+            typeof errData?.detail === "string"
+              ? errData.detail
+              : errData?.detail?.message || `Upload failed with status ${xhr.status}`;
+          reject(new Error(message));
         } catch {
           reject(new Error(`Upload failed with status ${xhr.status}`));
         }
@@ -74,15 +100,21 @@ export function uploadWithProgress(
       reject(new Error("Audio upload was aborted."));
     });
 
+    // Bearer bridge token SSO (401 → upload bị chặn; caller hiển thị lỗi
+    // và flow tự re-auth qua ensureAuth ở lần render sau)
+    const headers = authHeaders();
+    for (const [key, value] of Object.entries(headers)) {
+      xhr.setRequestHeader(key, value);
+    }
     xhr.open("POST", normalizeUrl("/api/upload"));
     xhr.send(formData);
   });
 }
 
 export async function quickAnalyze(taskId: string): Promise<TelemetryData> {
-  const res = await fetch(normalizeUrl(`/api/analyze/quick/${taskId}`), { method: "POST" });
+  const res = await authFetch(normalizeUrl(`/api/analyze/quick/${taskId}`), { method: "POST" });
   if (!res.ok) {
-    throw new Error(`Quick analysis failed with status ${res.status}`);
+    throw await apiError(res, "Phân tích nhanh thất bại");
   }
   return (await res.json()) as TelemetryData;
 }
@@ -91,11 +123,11 @@ export async function startDeep(
   taskId: string,
   mode: StemMode = "4"
 ): Promise<{ task_id: string; status: string }> {
-  const res = await fetch(normalizeUrl(`/api/analyze/deep/${taskId}?stem_mode=${mode}`), {
+  const res = await authFetch(normalizeUrl(`/api/analyze/deep/${taskId}?stem_mode=${mode}`), {
     method: "POST",
   });
   if (!res.ok) {
-    throw new Error(`Deep analysis initialization failed with status ${res.status}`);
+    throw await apiError(res, "Khởi chạy phân tích sâu thất bại");
   }
   return (await res.json()) as { task_id: string; status: string };
 }
@@ -103,9 +135,9 @@ export async function startDeep(
 export async function startChordsOnly(
   taskId: string
 ): Promise<{ task_id: string; status: string }> {
-  const res = await fetch(normalizeUrl(`/api/analyze/chords/${taskId}`), { method: "POST" });
+  const res = await authFetch(normalizeUrl(`/api/analyze/chords/${taskId}`), { method: "POST" });
   if (!res.ok) {
-    throw new Error(`Chord analysis initialization failed with status ${res.status}`);
+    throw await apiError(res, "Khởi chạy phân tích hợp âm thất bại");
   }
   return (await res.json()) as { task_id: string; status: string };
 }
@@ -114,11 +146,11 @@ export async function startStemsOnly(
   taskId: string,
   mode: StemMode = "4"
 ): Promise<{ task_id: string; status: string }> {
-  const res = await fetch(normalizeUrl(`/api/analyze/stems/${taskId}?stem_mode=${mode}`), {
+  const res = await authFetch(normalizeUrl(`/api/analyze/stems/${taskId}?stem_mode=${mode}`), {
     method: "POST",
   });
   if (!res.ok) {
-    throw new Error(`Stem separation initialization failed with status ${res.status}`);
+    throw await apiError(res, "Khởi chạy tách stem thất bại");
   }
   return (await res.json()) as { task_id: string; status: string };
 }
@@ -127,11 +159,11 @@ export async function startDenoise(
   taskId: string,
   strength: number = 80
 ): Promise<{ task_id: string; status: string }> {
-  const res = await fetch(normalizeUrl(`/api/analyze/denoise/${taskId}?strength=${strength}`), {
+  const res = await authFetch(normalizeUrl(`/api/analyze/denoise/${taskId}?strength=${strength}`), {
     method: "POST",
   });
   if (!res.ok) {
-    throw new Error(`Noise reduction initialization failed with status ${res.status}`);
+    throw await apiError(res, "Khởi chạy lọc nhiễu thất bại");
   }
   return (await res.json()) as { task_id: string; status: string };
 }
@@ -367,9 +399,9 @@ export function streamProgress<T>(
 }
 
 export async function deleteSession(taskId: string): Promise<{ status: string; task_id: string }> {
-  const res = await fetch(normalizeUrl(`/api/session/${taskId}`), { method: "DELETE" });
+  const res = await authFetch(normalizeUrl(`/api/session/${taskId}`), { method: "DELETE" });
   if (!res.ok) {
-    throw new Error(`Failed to delete session ${taskId}`);
+    throw await apiError(res, `Xoá phiên làm việc ${taskId} thất bại`);
   }
   return (await res.json()) as { status: string; task_id: string };
 }

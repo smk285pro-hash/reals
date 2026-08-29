@@ -2,13 +2,23 @@
 
 import React, { useEffect, useState } from "react";
 import { getHealth, HealthResponse } from "@/lib/api-client";
+import type { RealsAuthUser } from "@/lib/auth";
 
 interface HeaderProps {
   onReset: () => void;
   isProcessing?: boolean;
+  authUser?: RealsAuthUser | null;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onReset, isProcessing = false }) => {
+/** Màu badge theo tier (khớp palette zinc/tím của app). */
+const TIER_BADGE: Record<string, string> = {
+  FREE: "bg-zinc-800 text-zinc-300 border-zinc-600",
+  BASIC: "bg-sky-950 text-sky-300 border-sky-800/60",
+  MAX: "bg-purple-950 text-purple-300 border-purple-800/60",
+  ULTRA: "bg-amber-950 text-amber-300 border-amber-700/60",
+};
+
+export const Header: React.FC<HeaderProps> = ({ onReset, isProcessing = false, authUser = null }) => {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(true);
 
@@ -55,6 +65,29 @@ export const Header: React.FC<HeaderProps> = ({ onReset, isProcessing = false })
       </div>
 
       <div className="flex items-center space-x-2 sm:space-x-4">
+        {/* SSO user + tier badge (reals.media) */}
+        {authUser && (
+          <div
+            className="flex items-center space-x-2 bg-zinc-900/90 px-2.5 sm:px-3 py-1.5 rounded-full border border-zinc-800 text-xs"
+            title={`${authUser.email} — đăng nhập qua reals.media`}
+          >
+            <span
+              className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                TIER_BADGE[authUser.tier] || TIER_BADGE.FREE
+              }`}
+            >
+              {authUser.tier}
+            </span>
+            {authUser.creditsRemaining !== null ? (
+              <span className="text-zinc-400 font-medium whitespace-nowrap">
+                còn <span className="text-zinc-100 font-bold">{authUser.creditsRemaining}</span>/{authUser.limit ?? "∞"} lượt
+              </span>
+            ) : (
+              <span className="text-amber-400/90 font-medium">Không giới hạn</span>
+            )}
+          </div>
+        )}
+
         {/* Backend & GPU Status Indicator */}
         <div className="flex items-center space-x-2 bg-zinc-900/90 px-2.5 sm:px-3 py-1.5 rounded-full border border-zinc-800 text-xs">
           <span

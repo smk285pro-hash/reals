@@ -12,8 +12,10 @@ import zipfile
 import librosa
 import numpy as np
 import soundfile as sf
-from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+
+from app.core.reals_auth import consume_separation_credit, require_auth
 
 from app.core.audio_processor import (
     compute_peaks,
@@ -177,8 +179,21 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
+@router.get("/auth/me")
+async def auth_me(user: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+    """Thông tin user + tier hiện tại (verify bridge token qua main-app).
+
+    SPA stem-app gọi endpoint này ngay sau khi nhận token (#token=...) để
+    hiển thị badge tier + số lượt còn lại. Không trả bridge token về client.
+    """
+    return {k: v for k, v in user.items() if k != "token"}
+
+
 @router.post("/upload")
-async def upload_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def upload_audio(
+    file: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
     """Upload and normalize an audio file, extracting master files and peak visualization."""
     try:
         content_type = file.content_type or ""
@@ -323,7 +338,10 @@ async def get_waveform(task_id: str) -> List[List[float]]:
 
 
 @router.post("/analyze/quick/{task_id}")
-async def analyze_quick(task_id: str) -> Dict[str, Any]:
+async def analyze_quick(
+    task_id: str,
+    user: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
     """Perform fast (<2s) telemetry analysis (BPM, key, scale mode, duration) on mono audio."""
     try:
         mono_path = SETTINGS.upload_dir / task_id / "master_mono.wav"
@@ -405,7 +423,10 @@ async def analyze_quick(task_id: str) -> Dict[str, Any]:
 
 
 @router.delete("/session/{task_id}")
-async def delete_session(task_id: str) -> Dict[str, Any]:
+async def delete_session(
+    task_id: str,
+    user: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
     """Delete all session storage assets and remove task state."""
     _validate_task_id(task_id)
     try:
@@ -439,6 +460,7 @@ async def delete_session(task_id: str) -> Dict[str, Any]:
 async def analyze_deep(
     task_id: str,
     stem_mode: str = Query("4", description="Stem separation mode: 2, 4, 6, 8"),
+    user: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
     """Launch asynchronous full multi-stage DSP deep analysis pipeline."""
     try:
@@ -464,6 +486,12 @@ async def analyze_deep(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Deep analysis for task {task_id} is already in progress.",
             )
+
+        # Ghi nhận quota tách nhạc TRƯỚC khi khởi động GPU work
+        # (main-app check-and-record atomic; hết quota → 429, service lỗi → 503)
+        await consume_separation_credit(
+            user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "analyze/deep"}
+        )
 
         TASK_MANAGER.update(task_id, status="QUEUED", stage="Queued for deep analysis", percent=0)
         analyzer = UnifiedDeepAnalyzer(task_id=task_id, audio_path=master_path, stem_mode=stem_mode)
@@ -752,7 +780,10 @@ def _guard_task_ready(task_id: str) -> Tuple[Path, Path]:
 
 
 @router.post("/analyze/chords/{task_id}", status_code=status.HTTP_202_ACCEPTED)
-async def analyze_chords_only(task_id: str) -> Dict[str, Any]:
+async def analyze_chords_only(
+    task_id: str,
+    user: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
     """Launch standalone chord-progression analysis (no stem separation) as a background task."""
     try:
         master_stereo, master_mono = _guard_task_ready(task_id)
@@ -801,6 +832,7 @@ async def analyze_chords_only(task_id: str) -> Dict[str, Any]:
 async def analyze_stems_only(
     task_id: str,
     stem_mode: str = Query("4", description="Stem separation mode: 2, 4, 6, 8"),
+    user: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
     """Launch standalone stem separation (no chord/rhythm analysis) as a background task."""
     try:
@@ -811,6 +843,11 @@ async def analyze_stems_only(
             )
 
         master_stereo, _ = _guard_task_ready(task_id)
+
+        # Ghi nhận quota tách nhạc TRƯỚC khi khởi động GPU work
+        await consume_separation_credit(
+            user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "analyze/stems"}
+        )
 
         TASK_MANAGER.update(task_id, status="QUEUED", stage="Queued for stem separation", percent=0)
 
@@ -853,6 +890,7 @@ async def analyze_stems_only(
 async def analyze_denoise(
     task_id: str,
     strength: int = Query(80, ge=0, le=100, description="Noise reduction strength 0-100"),
+    user: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
     """Launch standalone DeepFilterNet noise reduction on the original upload."""
     try:
@@ -954,7 +992,10 @@ async def get_denoised(task_id: str, request: Request) -> Response:
 
 
 @router.post("/v1/analyze")
-async def v1_analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def v1_analyze(
+    file: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
     """[Dev API] Detect tempo (BPM), musical key & scale mode from an audio file.
 
     The audio is analysed exactly as uploaded — no loudness normalisation or any
@@ -976,7 +1017,10 @@ async def v1_analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
 
 
 @router.post("/v1/chords")
-async def v1_chords(file: UploadFile = File(...)) -> Dict[str, Any]:
+async def v1_chords(
+    file: UploadFile = File(...),
+    user: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
     """[Dev API] Detect the full chord progression of an audio file.
 
     Returns JSON: telemetry (bpm/key/mode/time signature), beat grid and the
@@ -1004,6 +1048,7 @@ async def v1_chords(file: UploadFile = File(...)) -> Dict[str, Any]:
 async def v1_separate(
     file: UploadFile = File(...),
     stem_mode: str = Query("4", description="Stem separation mode: 2, 4, 6, 8"),
+    user: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
     """[Dev API] Separate an audio file into stems (vocals/drums/bass/other...).
 
@@ -1021,6 +1066,11 @@ async def v1_separate(
         task_id, original_path = await _save_upload_file(file)
         stereo_path, _ = await asyncio.to_thread(
             prepare_working_audio, task_id, original_path
+        )
+
+        # Ghi nhận quota tách nhạc TRƯỚC khi khởi động GPU work
+        await consume_separation_credit(
+            user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "v1/separate"}
         )
 
         TASK_MANAGER.create(task_id)
@@ -1097,6 +1147,7 @@ async def v1_job_status(task_id: str) -> Dict[str, Any]:
 async def v1_denoise(
     file: UploadFile = File(...),
     strength: int = Query(80, ge=0, le=100, description="Noise reduction strength 0-100"),
+    user: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
     """[Dev API] Remove noise from an audio file with DeepFilterNet (async job).
 
