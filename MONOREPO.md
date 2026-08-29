@@ -74,8 +74,31 @@ reals/
     main-app/          # Next.js 16 — nguồn dữ liệu chính
     stem-app/          # Next.js 15 frontend + FastAPI backend — app con
   packages/
+    auth-client/       # (Bước 3) @reals/auth-client — SSO client TS cho frontend
     ui/                # (Bước 5) design tokens + components dùng chung
-    auth-client/       # (Bước 3) SDK: verifyToken, getUserTier, redirectToLogin
   package.json         # pnpm workspaces + turbo
   turbo.json
 ```
+
+## packages/auth-client — SSO client (Bước 3)
+
+Hai phần, một cơ chế token exchange với main-app:
+
+**1. `packages/auth-client` (TypeScript)** — cho stem-app frontend (Next.js):
+
+- Quản lý bridge token: `extractTokenFromLocation()` đọc `#token=` từ URL (sau khi authorize redirect về), lưu localStorage, xoá hash khỏi address bar.
+- Silent re-auth: `ensureAuth()` (redirect sang main-app khi chưa có token), `authFetch()` (tự gắn `Authorization: Bearer`, gặp 401 → clear token + redirect ngầm qua authorize — user giữ session NextAuth 30 ngày nên không cần gõ mật khẩu lần 2).
+- `fetchAuthMe(apiBaseUrl)` gọi endpoint `/api/auth/me` của stem backend (thêm ở Bước 4).
+- Browser KHÔNG gọi thẳng API main-app (không cần mở CORS) — mọi verify đều do stem backend thực hiện server-to-server.
+- Import: `import { configureRealsAuth, authFetch } from '@reals/auth-client'` + thêm `'@reals/auth-client'` vào `transpilePackages` trong `next.config.ts` của stem-app.
+
+**2. `apps/stem-app/backend/app/core/reals_auth.py` (Python/FastAPI)** — cho stem backend:
+
+- `require_auth` (FastAPI dependency): đọc Bearer token → POST main-app `/api/auth/verify-session` → trả user + tier LIVE. Dùng: `user: dict = Depends(require_auth)`.
+- `optional_auth`: dạng tuỳ chọn (anonymous → None) cho endpoint không bắt buộc đăng nhập.
+- Fail-closed: main-app down / DB lỗi → 503 từ chối request (không bao giờ chấp nhận token khi verify không được).
+- Cache kết quả valid 60s theo SHA-256(token) — giảm tải cho main-app (rate-limit 120 req/min/IP).
+- Env backend: `REALS_MAIN_APP_URL` (mặc định http://localhost:3000), `REALS_AUTH_CACHE_TTL` (60), `REALS_AUTH_TIMEOUT` (5).
+- Lưu ý: đặt trong backend (không phải packages/) vì Docker build context của stem-app chỉ gồm apps/stem-app.
+
+Kiểm thử (2026-08-29): TS client 23/23 unit + typecheck OK; Python client 18/18 E2E (verify hợp lệ/rác/hết hạn, cache, FastAPI dependency, fail-closed khi main-app chết); regression Step 2 22/22 PASS.

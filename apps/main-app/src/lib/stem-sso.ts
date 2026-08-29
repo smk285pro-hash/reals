@@ -11,7 +11,8 @@
 //   STEM_SSO_ALLOWED_REDIRECTS — (tuỳ chọn) comma-separated list các origin
 //                                được phép nhận redirect sau login.
 //                                Mặc định: https://stem.reals.media,
-//                                http://localhost:8000, http://127.0.0.1:8000
+//                                http://localhost:3100, http://127.0.0.1:3100
+//                                (3100 = stem-app frontend dev port)
 import { SignJWT, jwtVerify } from 'jose'
 import { randomUUID } from 'crypto'
 
@@ -90,7 +91,7 @@ export function isAllowedRedirect(rawUrl: string | null | undefined): boolean {
     if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
     const allowed = (
       process.env.STEM_SSO_ALLOWED_REDIRECTS ||
-      'https://stem.reals.media,http://localhost:8000,http://127.0.0.1:8000'
+      'https://stem.reals.media,http://localhost:3100,http://127.0.0.1:3100'
     )
       .split(',')
       .map((s) => s.trim())
