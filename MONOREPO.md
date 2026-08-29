@@ -56,9 +56,10 @@ Backend tự fallback sang DSP (HPSS + librosa) khi thiếu torch/demucs/BeatNet
 
 - **main-app**: giữ nguyên Vercel. ⚠️ Khi merge nhánh `merge-monorepo` vào `main`, phải đổi **Root Directory** của Vercel project thành `apps/main-app` trong cùng cửa sổ bảo trì (vì code đã chuyển từ root vào subfolder). Production hiện tại không bị ảnh hưởng cho tới khi merge.
 - **stem-app**: 2 thành phần tách bạch:
-  - **Backend** (FastAPI, port 3031): deploy trên Oracle Cloud GPU VPS (docker-compose / Dockerfile.backend sẵn trong repo) hoặc Modal (`modal_app.py`). Trỏ DNS `stem.reals.media` (hoặc subdomain API riêng) về server đó.
-  - **Frontend** (Next.js): deploy được trên Vercel project riêng hoặc cùng VPS; set `NEXT_PUBLIC_API_URL` trỏ tới backend ở trên. `.env.production` gốc của repo đang trỏ tới Modal URL — cập nhật theo phương án deploy cuối cùng.
-  - SSO với main-app qua token exchange (xem `packages/auth-client` — sẽ thêm ở các bước sau).
+  - **Backend** (FastAPI): production đang chạy trên **Modal serverless** (GPU T4) — `https://smk285pro--ai-audio-lab-fastapi-web.modal.run`. File deploy `apps/stem-app/modal_app.py` (đã gắn SSO + tier gating, 12 endpoint auth + quota). Deploy: `cd apps/stem-app && modal deploy modal_app.py`. Chi tiết + thứ tự deploy: `apps/stem-app/DEPLOY.md`. *(Phương án self-host VPS qua Dockerfile.backend vẫn giữ trong repo nhưng không dùng.)*
+  - **Frontend** (Next.js): Vercel project riêng (Root Directory `apps/stem-app`); `.env.production` đã trỏ `NEXT_PUBLIC_API_URL` tới Modal URL + `NEXT_PUBLIC_MAIN_APP_URL=https://reals.media`.
+  - SSO với main-app qua token exchange (`packages/auth-client`) — backend Modal verify bridge token với main-app, hết quota → 429.
+- **Thứ tự deploy khi lên production**: (1) merge PR monorepo vào main + chạy `apps/main-app/sql/001-add-subscription-and-usageevent.sql` trên DB + set `STEM_SSO_SECRET` trên Vercel; (2) `modal deploy` backend SSO; (3) deploy frontend stem-app. Deploy sai thứ tự → backend Modal fail-closed 503.
 
 ## Lockfiles
 

@@ -1,3 +1,28 @@
+"""Modal deployment cho stem-app backend (AI Audio Lab).
+
+Cấu trúc:
+- `fastapi_web` — ASGI web layer (REST + SSE), chạy thường trực (min_containers=1)
+- `analyze_deep_task` / `analyze_stems_task` — GPU worker (NVIDIA T4, Demucs)
+- `analyze_chords_task` — CPU worker (Viterbi HMM chords)
+- `denoise_task` — CPU worker (DeepFilterNet)
+- `cleanup_stale_sessions` — cron dọn session mỗi giờ
+
+SSO + tier gating (monorepo Bước 4): web layer gate các endpoint đổi trạng thái /
+tốn GPU bằng `require_auth` (verify bridge token qua main-app reals.media
+`/api/auth/verify-session`, xem backend/app/core/reals_auth.py). Endpoint tách
+nhạc (deep / stems / v1/separate) gọi `consume_separation_credit` NGAY TRƯỚC khi
+spawn GPU worker — hết quota → 429, main-app lỗi → 503 (fail-closed). Các
+endpoint polling / tải file (status, progress, audio, stems, export...) giữ
+public — task_id là UUID khó đoán, tương thích <audio> tag không gắn được header.
+
+Env (ghi đè bằng Modal Secret nếu cần):
+- REALS_MAIN_APP_URL   — URL main-app cấp bridge token (mặc định https://reals.media)
+- REALS_AUTH_CACHE_TTL — giây, mặc định 60 (cache verify)
+- REALS_AUTH_TIMEOUT   — timeout HTTP tới main-app, giây, mặc định 5
+
+Deploy: `modal deploy modal_app.py` (chạy trong apps/stem-app/ — image mount
+thư mục `backend/` cạnh file này). Xem DEPLOY.md cho thứ tự deploy đúng.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +37,7 @@ import zipfile
 # Guarantee STORAGE_DIR is set before any backend modules are imported
 os.environ["STORAGE_DIR"] = "/storage"
 
-from fastapi import FastAPI, File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 import modal
@@ -23,7 +48,9 @@ app = modal.App("ai-audio-lab")
 # 2. Build Container Image with system packages and Python dependencies
 image = (
     modal.Image.debian_slim(python_version="3.10")
-    .env({"STORAGE_DIR": "/storage"})
+    # REALS_MAIN_APP_URL: main-app verify bridge token + ghi quota (SSO).
+    # Ghi đè bằng Modal Secret `reals-sso` nếu cần (không bắt buộc).
+    .env({"STORAGE_DIR": "/storage", "REALS_MAIN_APP_URL": "https://reals.media"})
     .apt_install("ffmpeg", "libsndfile1", "git")
     .pip_install(
         "fastapi==0.115.6",
@@ -38,6 +65,7 @@ image = (
         "pretty_midi>=0.2.10",
         "aiofiles>=23.2.1",
         "httpx>=0.27",
+        "python-dotenv>=1.0.1",
         "torch>=2.3,<2.9",
         "torchaudio>=2.3,<2.9",
         "demucs==4.0.1",
@@ -470,17 +498,24 @@ def fastapi_web() -> Any:
     from backend.app.core.config import MAX_UPLOAD_MB, SAMPLE_RATE, SETTINGS, STEM_MODES, ensure_storage_dirs
     from backend.app.core.key_detector import detect_key
     from backend.app.core.midi_exporter import export_midi
+    # SSO + tier gating — verify bridge token qua main-app (fail-closed),
+    # ghi quota tách nhạc qua /api/usage/separation (check-and-record atomic)
+    from backend.app.core.reals_auth import consume_separation_credit, require_auth
     from backend.app.core.schemas import BeatPoint, ChordSegment
 
     ensure_storage_dirs()
 
     web_app = FastAPI(
         title="AI Audio Lab Modal API",
-        version="2026.1.0",
+        version="2026.2.0",
         docs_url="/docs",
         redoc_url="/redoc",
     )
 
+    # CORS: SPA chạy trên domain khác (Vercel / stem.reals.media) gọi cross-origin
+    # tới URL Modal này. Auth dùng Authorization: Bearer (cookie-less) nên
+    # allow_origins=["*"] an toàn với fetch spec; giữ nguyên như bản cũ để không
+    # break frontend đang chạy.
     web_app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -536,12 +571,25 @@ def fastapi_web() -> Any:
         return {
             "status": "ok",
             "gpu_available": True,
-            "version": "2026.1.0",
+            "version": "2026.2.0",
             "platform": "modal-serverless",
         }
 
+    @web_app.get("/api/auth/me")
+    async def auth_me(user: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+        """Thông tin user + tier hiện tại (verify bridge token qua main-app).
+
+        SPA stem-app gọi endpoint này ngay sau khi nhận token (#token=...) để
+        hiển thị badge tier + số lượt còn lại. Không trả bridge token về client.
+        (Giống /api/auth/me của backend local — routes.py.)
+        """
+        return {k: v for k, v in user.items() if k != "token"}
+
     @web_app.post("/api/upload")
-    async def upload(file: UploadFile = File(description="Tệp âm thanh tải lên")) -> Dict[str, Any]:
+    async def upload(
+        file: UploadFile = File(description="Tệp âm thanh tải lên"),
+        user: Dict[str, Any] = Depends(require_auth),
+    ) -> Dict[str, Any]:
         """Receive audio file, normalize EBU R128 (-14 LUFS), calculate peaks, and commit to Volume."""
         try:
             content_type = file.content_type or ""
@@ -677,7 +725,10 @@ def fastapi_web() -> Any:
         return data
 
     @web_app.post("/api/analyze/quick/{task_id}")
-    async def analyze_quick(task_id: str) -> Dict[str, Any]:
+    async def analyze_quick(
+        task_id: str,
+        user: Dict[str, Any] = Depends(require_auth),
+    ) -> Dict[str, Any]:
         """Perform fast (<2s) CPU telemetry analysis (BPM, key, scale mode, duration)."""
         await storage_volume.reload.aio()
         mono_path = SETTINGS.upload_dir / task_id / "master_mono.wav"
@@ -765,6 +816,7 @@ def fastapi_web() -> Any:
     async def analyze_deep(
         task_id: str,
         stem_mode: str = Query("4", description="Stem separation mode: 2, 4, 6, 8"),
+        user: Dict[str, Any] = Depends(require_auth),
     ) -> Dict[str, Any]:
         """Spawn asynchronous multi-track deep analysis on serverless NVIDIA T4 GPU container."""
         if stem_mode not in STEM_MODES:
@@ -781,6 +833,13 @@ def fastapi_web() -> Any:
                 detail=f"Task {task_id} not found or master audio missing.",
             )
 
+        # Ghi nhận quota tách nhạc TRƯỚC khi spawn GPU worker (main-app
+        # check-and-record atomic; hết quota → 429, service lỗi → 503 fail-closed).
+        # Trả kèm quota mới nhất để SPA cập nhật badge "còn X lượt" NGAY.
+        credit = await consume_separation_credit(
+            user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "analyze/deep"}
+        )
+
         status_payload = {
             "task_id": task_id,
             "status": "QUEUED",
@@ -796,10 +855,13 @@ def fastapi_web() -> Any:
         # Non-blocking async invocation of GPU worker function
         analyze_deep_task.spawn(task_id, stem_mode)
 
-        return {"task_id": task_id, "status": "QUEUED", "stem_mode": stem_mode}
+        return {"task_id": task_id, "status": "QUEUED", "stem_mode": stem_mode, "quota": credit}
 
     @web_app.post("/api/analyze/chords/{task_id}", status_code=status.HTTP_202_ACCEPTED)
-    async def analyze_chords(task_id: str) -> Dict[str, Any]:
+    async def analyze_chords(
+        task_id: str,
+        user: Dict[str, Any] = Depends(require_auth),
+    ) -> Dict[str, Any]:
         """Spawn standalone chord-progression analysis (no stems) on a CPU worker."""
         await storage_volume.reload.aio()
         master_path = SETTINGS.upload_dir / task_id / "master_44k_stereo.wav"
@@ -830,6 +892,7 @@ def fastapi_web() -> Any:
     async def analyze_stems(
         task_id: str,
         stem_mode: str = Query("4", description="Stem separation mode: 2, 4, 6, 8"),
+        user: Dict[str, Any] = Depends(require_auth),
     ) -> Dict[str, Any]:
         """Spawn standalone AI stem separation (no music analysis) on a GPU worker."""
         if stem_mode not in STEM_MODES:
@@ -846,6 +909,11 @@ def fastapi_web() -> Any:
                 detail=f"Task {task_id} not found or master audio missing.",
             )
 
+        # Ghi nhận quota tách nhạc TRƯỚC khi spawn GPU worker (xem analyze_deep)
+        credit = await consume_separation_credit(
+            user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "analyze/stems"}
+        )
+
         status_payload = {
             "task_id": task_id,
             "status": "QUEUED",
@@ -860,12 +928,13 @@ def fastapi_web() -> Any:
 
         analyze_stems_task.spawn(task_id, stem_mode)
 
-        return {"task_id": task_id, "status": "QUEUED", "stem_mode": stem_mode}
+        return {"task_id": task_id, "status": "QUEUED", "stem_mode": stem_mode, "quota": credit}
 
     @web_app.post("/api/analyze/denoise/{task_id}", status_code=status.HTTP_202_ACCEPTED)
     async def analyze_denoise(
         task_id: str,
         strength: int = Query(80, ge=0, le=100, description="Noise reduction strength 0-100"),
+        user: Dict[str, Any] = Depends(require_auth),
     ) -> Dict[str, Any]:
         """Spawn DeepFilterNet noise reduction on a CPU worker."""
         await storage_volume.reload.aio()
@@ -1156,7 +1225,10 @@ def fastapi_web() -> Any:
         )
 
     @web_app.delete("/api/session/{task_id}")
-    async def delete_session(task_id: str) -> Dict[str, Any]:
+    async def delete_session(
+        task_id: str,
+        user: Dict[str, Any] = Depends(require_auth),
+    ) -> Dict[str, Any]:
         """Delete all session storage assets and clean Volume directories."""
         import shutil
 
@@ -1217,7 +1289,10 @@ def fastapi_web() -> Any:
         return task_id, original_path
 
     @web_app.post("/api/v1/analyze")
-    async def v1_analyze(file: UploadFile = File(...)) -> Dict[str, Any]:
+    async def v1_analyze(
+        file: UploadFile = File(...),
+        user: Dict[str, Any] = Depends(require_auth),
+    ) -> Dict[str, Any]:
         """[Dev API] Detect tempo (BPM), key & scale mode from an audio file.
 
         The audio is analysed exactly as uploaded — no loudness normalisation or
@@ -1237,7 +1312,10 @@ def fastapi_web() -> Any:
         return result
 
     @web_app.post("/api/v1/chords")
-    async def v1_chords(file: UploadFile = File(...)) -> Dict[str, Any]:
+    async def v1_chords(
+        file: UploadFile = File(...),
+        user: Dict[str, Any] = Depends(require_auth),
+    ) -> Dict[str, Any]:
         """[Dev API] Detect the full chord progression of an audio file.
 
         Returns JSON synchronously: telemetry (bpm/key/mode/time signature),
@@ -1270,6 +1348,7 @@ def fastapi_web() -> Any:
     async def v1_separate(
         file: UploadFile = File(...),
         stem_mode: str = Query("4", description="Stem separation mode: 2, 4, 6, 8"),
+        user: Dict[str, Any] = Depends(require_auth),
     ) -> Dict[str, Any]:
         """[Dev API] Separate an audio file into stems (async — poll the job).
 
@@ -1294,6 +1373,12 @@ def fastapi_web() -> Any:
                 detail=f"Audio decoding failed: {str(exc)}",
             )
 
+        # Ghi nhận quota tách nhạc TRƯỚC khi spawn GPU worker (xem analyze_deep);
+        # trả kèm quota mới nhất cho client API
+        credit = await consume_separation_credit(
+            user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "v1/separate"}
+        )
+
         status_payload = {
             "task_id": task_id,
             "status": "QUEUED",
@@ -1313,6 +1398,7 @@ def fastapi_web() -> Any:
             "status": "QUEUED",
             "stem_mode": stem_mode,
             "status_url": f"/api/v1/jobs/{task_id}",
+            "quota": credit,
         }
 
     @web_app.get("/api/v1/jobs/{task_id}")
@@ -1356,6 +1442,7 @@ def fastapi_web() -> Any:
     async def v1_denoise(
         file: UploadFile = File(...),
         strength: int = Query(80, ge=0, le=100, description="Noise reduction strength 0-100"),
+        user: Dict[str, Any] = Depends(require_auth),
     ) -> Dict[str, Any]:
         """[Dev API] Remove noise from an audio file with DeepFilterNet (async job).
 

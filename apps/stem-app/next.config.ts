@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
-// Backend FastAPI mặc định chạy cùng VPS (Bước 4 monorepo — trước đây là Modal).
-// Override bằng env BACKEND_API_URL / NEXT_PUBLIC_API_URL khi cần.
+// Backend FastAPI production chạy trên Modal serverless — SPA gọi thẳng qua
+// NEXT_PUBLIC_API_URL (cross-origin, CORS đã mở trên Modal). Rewrite same-origin
+// /api/* dưới đây chỉ dùng khi self-host VPS / dev local (BACKEND_API_URL).
 const BACKEND_URL =
   process.env.BACKEND_API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||

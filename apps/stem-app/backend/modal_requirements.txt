@@ -11,6 +11,7 @@ pyloudnorm>=0.1.0
 pretty_midi>=0.2.10
 aiofiles>=23.2.1
 httpx>=0.27
+python-dotenv>=1.0.1
 torch>=2.3
 torchaudio>=2.3
 demucs==4.0.1
