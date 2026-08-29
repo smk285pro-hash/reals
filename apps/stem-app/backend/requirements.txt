@@ -1,0 +1,15 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
+numpy>=1.26,<2.1
+scipy>=1.11
+librosa==0.10.2.post1
+soundfile>=0.12.1
+pyloudnorm>=0.1.0
+pretty_midi>=0.2.10
+aiofiles>=23.2.1
+python-dotenv>=1.0.1
+
+# SSO: gọi main-app /api/auth/verify-session (app/core/reals_auth.py)
+httpx>=0.27

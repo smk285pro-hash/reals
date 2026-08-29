@@ -1,0 +1,10 @@
+[workspace]
+name = "ai-audio-lab"
+
+[deploy]
+app_name = "ai-audio-lab"
+
+[gpu]
+type = "T4"
+min_containers = 0
+scaledown_window = 300

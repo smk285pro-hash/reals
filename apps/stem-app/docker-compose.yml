@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        INSTALL_ML: "false"
+    container_name: ai-audio-lab-backend
+    restart: unless-stopped
+    ports:
+      - "3031:3031"
+    volumes:
+      - ./storage:/app/../storage
+    environment:
+      - APP_PORT=3031
+      - STORAGE_DIR=/app/../storage
+      - INSTALL_ML=false
+    # ==============================================================================
+    # NVIDIA GPU Acceleration (Uncomment if NVIDIA Container Toolkit is installed):
+    # ==============================================================================
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  frontend:
+    image: node:20-slim
+    container_name: ai-audio-lab-frontend
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+    command: sh -c "if [ -f package.json ]; then npm install && npm run dev; else echo 'Waiting for frontend Stage 4 codebase...'; sleep 3600; fi"
+    depends_on:
+      - backend

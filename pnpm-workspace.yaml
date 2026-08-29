@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 11: duyệt build scripts cho các dep cần (es5-ext là dep phụ không cần script)
+allowBuilds:
+  "@parcel/watcher": true
+  "@prisma/client": true
+  "@prisma/engines": true
+  "@swc/core": true
+  "es5-ext": false
+  "prisma": true
+  "sharp": true
+  "unrs-resolver": true

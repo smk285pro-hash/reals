@@ -1,0 +1,16 @@
+storage/
+backend/
+node_modules/
+.next/
+.claude/
+.gitnexus/
+.vercel/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.wav
+*.mid
+modal_log_*.txt
+.env
+.env.local
+test_demucs_file.wav
