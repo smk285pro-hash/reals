@@ -101,14 +101,24 @@ export function uploadWithProgress(
     });
 
     // Bearer bridge token SSO (401 → upload bị chặn; caller hiển thị lỗi
-    // và flow tự re-auth qua ensureAuth ở lần render sau)
+    // và flow tự re-auth qua ensureAuth ở lần render sau).
+    // LƯU Ý: setRequestHeader chỉ hợp lệ SAU open() — sai thứ tự sẽ throw
+    // "The object's state must be OPENED" (bắt được qua browser test).
+    xhr.open("POST", normalizeUrl("/api/upload"));
     const headers = authHeaders();
     for (const [key, value] of Object.entries(headers)) {
       xhr.setRequestHeader(key, value);
     }
-    xhr.open("POST", normalizeUrl("/api/upload"));
     xhr.send(formData);
   });
+}
+
+/** Quota còn lại sau 1 lần tách — backend trả kèm trong response 202. */
+export interface QuotaInfo {
+  tier: "FREE" | "BASIC" | "MAX" | "ULTRA";
+  limit: number | null;
+  usedToday: number;
+  creditsRemaining: number | null;
 }
 
 export async function quickAnalyze(taskId: string): Promise<TelemetryData> {
@@ -122,14 +132,14 @@ export async function quickAnalyze(taskId: string): Promise<TelemetryData> {
 export async function startDeep(
   taskId: string,
   mode: StemMode = "4"
-): Promise<{ task_id: string; status: string }> {
+): Promise<{ task_id: string; status: string; quota?: QuotaInfo }> {
   const res = await authFetch(normalizeUrl(`/api/analyze/deep/${taskId}?stem_mode=${mode}`), {
     method: "POST",
   });
   if (!res.ok) {
     throw await apiError(res, "Khởi chạy phân tích sâu thất bại");
   }
-  return (await res.json()) as { task_id: string; status: string };
+  return (await res.json()) as { task_id: string; status: string; quota?: QuotaInfo };
 }
 
 export async function startChordsOnly(
@@ -145,14 +155,14 @@ export async function startChordsOnly(
 export async function startStemsOnly(
   taskId: string,
   mode: StemMode = "4"
-): Promise<{ task_id: string; status: string }> {
+): Promise<{ task_id: string; status: string; quota?: QuotaInfo }> {
   const res = await authFetch(normalizeUrl(`/api/analyze/stems/${taskId}?stem_mode=${mode}`), {
     method: "POST",
   });
   if (!res.ok) {
     throw await apiError(res, "Khởi chạy tách stem thất bại");
   }
-  return (await res.json()) as { task_id: string; status: string };
+  return (await res.json()) as { task_id: string; status: string; quota?: QuotaInfo };
 }
 
 export async function startDenoise(

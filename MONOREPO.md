@@ -102,3 +102,35 @@ Hai phần, một cơ chế token exchange với main-app:
 - Lưu ý: đặt trong backend (không phải packages/) vì Docker build context của stem-app chỉ gồm apps/stem-app.
 
 Kiểm thử (2026-08-29): TS client 23/23 unit + typecheck OK; Python client 18/18 E2E (verify hợp lệ/rác/hết hạn, cache, FastAPI dependency, fail-closed khi main-app chết); regression Step 2 22/22 PASS.
+
+## Bước 4 — SSO + tier gating toàn chuỗi (đã gắn vào stem-app)
+
+**Kiến trúc quota tách nhạc** (giá trị limit ở `apps/main-app/src/lib/tiers.ts` — FREE 3 / BASIC 10 / MAX 30 / ULTRA ∞ mỗi 24h, PROVISIONAL):
+
+```
+SPA stem-app ── Bearer bridge token ──► stem backend FastAPI
+                                          │ require_auth (verify qua main-app, cache 60s)
+                                          │ consume_separation_credit
+                                          ▼
+                       main-app POST /api/usage/separation
+                       (check-and-record ATOMIC, transaction Serializable)
+                       200 → ghi UsageEvent, trả tier info mới nhất
+                       409 → hết quota → backend trả 429 quota_exceeded
+```
+
+**Endpoint stem backend** (`apps/stem-app/backend/app/api/routes.py`):
+
+- `GET /api/auth/me` — user + tier hiện tại (SPA hiển thị badge).
+- Bảo vệ bằng `require_auth`: `upload`, `analyze/quick|chords|denoise`, `session DELETE`, `v1/analyze|chords|denoise`.
+- Bảo vệ + quota (`consume_separation_credit`): `analyze/deep`, `analyze/stems`, `v1/separate` — quota ghi TRƯỚC khi khởi động GPU work; response 202 kèm `quota` (tier info mới nhất) để SPA cập nhật badge ngay không lag cache.
+- Giữ capability-URL (uuid4 không đoán được, TTL session): `status`, `progress` (SSE — EventSource không gửi được header), `audio`, `stems`, `denoised`, `export/*`, `waveform`.
+- CORS theo env `REALS_ALLOWED_ORIGINS` (mặc định đã gồm `:3000`, `:3100`, `https://stem.reals.media`).
+
+**Frontend** (`apps/stem-app/src/`):
+
+- `lib/auth.ts` — `initAuth()` (đọc `#token=` → localStorage → xoá hash; thiếu token → redirect authorize), `loadCurrentUser()`.
+- `lib/api-client.ts` — mọi call được bảo vệ đi qua `authFetch` (Bearer + 401 → silent re-auth); XHR upload gắn `authHeaders()` **sau** `xhr.open()`; lỗi FastAPI (detail string | `{message}`) → message tiếng Việt (429 quota → "Bạn đã dùng hết lượt tách nhạc miễn phí trong 24 giờ qua. Nâng cấp gói tại reals.media để tiếp tục.").
+- `page.tsx` + `Header.tsx` — badge tier (FREE/BASIC/MAX/ULTRA) + "còn X/Y lượt" / "Không giới hạn"; cập nhật NGAY từ `quota` trong response 202.
+- Env: `NEXT_PUBLIC_MAIN_APP_URL` (dev `http://localhost:3000`, prod `https://reals.media`); `NEXT_PUBLIC_API_URL` để TRỐNG — API call đi same-origin qua rewrite `/api/*` của next.config.ts → `BACKEND_API_URL` (default `http://127.0.0.1:3031`) → không cần CORS khi deploy cùng VPS.
+
+**Kiểm thử Bước 4 (2026-08-29)**: E2E API 36/36 PASS (3 tiến trình thật: embedded PG + `next start` :3000 + uvicorn :3031) — token exchange, auth gating mọi endpoint, quota FREE 3 lượt → 429 lần 4, không bypass qua v1, chords-only không tiêu quota, live tier upgrade BASIC giữa phiên, quota trong response 202, CORS :3100, verify-session regression, fail-closed 503 khi main-app chết. Browser E2E (agent-browser, production build :3100): redirect login → token → badge "FREE còn 3/3 lượt" → upload XHR Bearer → deep/stems badge đếm 3→2→1→0 realtime → lần 4 hiện banner hết quota. Browser test bắt được 2 bug thật (XHR setRequestHeader trước open; MultiEdit gán nhầm return chords) — cả hai đã fix + thêm regression test.

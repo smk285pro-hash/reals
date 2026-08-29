@@ -489,7 +489,9 @@ async def analyze_deep(
 
         # Ghi nhận quota tách nhạc TRƯỚC khi khởi động GPU work
         # (main-app check-and-record atomic; hết quota → 429, service lỗi → 503)
-        await consume_separation_credit(
+        # Trả kèm quota mới nhất để SPA cập nhật badge "còn X lượt" NGAY
+        # (tránh lag cache verify 60s phía backend)
+        credit = await consume_separation_credit(
             user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "analyze/deep"}
         )
 
@@ -499,7 +501,7 @@ async def analyze_deep(
         _background_tasks.add(bg_task)
         bg_task.add_done_callback(_background_tasks.discard)
 
-        return {"task_id": task_id, "status": "QUEUED"}
+        return {"task_id": task_id, "status": "QUEUED", "quota": credit}
     except HTTPException:
         raise
     except Exception as e:
@@ -844,8 +846,9 @@ async def analyze_stems_only(
 
         master_stereo, _ = _guard_task_ready(task_id)
 
-        # Ghi nhận quota tách nhạc TRƯỚC khi khởi động GPU work
-        await consume_separation_credit(
+        # Ghi nhận quota tách nhạc TRƯỚC khi khởi động GPU work;
+        # trả kèm quota mới nhất cho SPA cập nhật badge ngay
+        credit = await consume_separation_credit(
             user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "analyze/stems"}
         )
 
@@ -876,7 +879,7 @@ async def analyze_stems_only(
         _background_tasks.add(bg_task)
         bg_task.add_done_callback(_background_tasks.discard)
 
-        return {"task_id": task_id, "status": "QUEUED", "stem_mode": stem_mode}
+        return {"task_id": task_id, "status": "QUEUED", "stem_mode": stem_mode, "quota": credit}
     except HTTPException:
         raise
     except Exception as e:
@@ -1068,8 +1071,9 @@ async def v1_separate(
             prepare_working_audio, task_id, original_path
         )
 
-        # Ghi nhận quota tách nhạc TRƯỚC khi khởi động GPU work
-        await consume_separation_credit(
+        # Ghi nhận quota tách nhạc TRƯỚC khi khởi động GPU work;
+        # trả kèm quota mới nhất cho client API
+        credit = await consume_separation_credit(
             user, {"taskId": task_id, "stemMode": stem_mode, "endpoint": "v1/separate"}
         )
 
@@ -1106,6 +1110,7 @@ async def v1_separate(
             "status": "QUEUED",
             "stem_mode": stem_mode,
             "status_url": f"/api/v1/jobs/{task_id}",
+            "quota": credit,
         }
     except HTTPException:
         raise

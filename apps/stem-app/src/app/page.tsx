@@ -107,6 +107,20 @@ export default function AudioStudioPage() {
     };
   }, []);
 
+  /** Cập nhật badge tier/credit từ quota info trong response 202 (không call thêm). */
+  const applyQuota = (quota: { tier: RealsAuthUser["tier"]; limit: number | null; usedToday: number; creditsRemaining: number | null }) => {
+    setAuthUser((prev) => (prev ? { ...prev, ...quota } : prev));
+  };
+
+  /** Fallback refresh badge (khi response không có quota). */
+  const refreshAuthUser = () => {
+    loadCurrentUser()
+      .then((user) => setAuthUser(user))
+      .catch(() => {
+        // bỏ qua — badge giữ số liệu cũ, quota vẫn enforce ở backend
+      });
+  };
+
   // 1. Upload completed handler
   const handleUploaded = (
     id: string,
@@ -195,7 +209,8 @@ export default function AudioStudioPage() {
     try {
       setPhase("STEMS_RUNNING");
       setDeepProgress({ percent: 0, stage: "Đang khởi tạo tách stem AI..." });
-      await startStemsOnly(id, stemMode);
+      const started = await startStemsOnly(id, stemMode);
+      if (started.quota) applyQuota(started.quota); // badge "còn X lượt" cập nhật NGAY (không lag cache)
 
       sseCleanupRef.current = streamProgress(id, {
         onProgress: (p) => {
@@ -275,7 +290,8 @@ export default function AudioStudioPage() {
     try {
       setPhase("DEEP_RUNNING");
       setDeepProgress({ percent: 0, stage: "Đang khởi tạo pipeline..." });
-      await startDeep(taskId, stemMode);
+      const started = await startDeep(taskId, stemMode);
+      if (started.quota) applyQuota(started.quota); // badge "còn X lượt" cập nhật NGAY (không lag cache)
 
       // Start SSE stream
       sseCleanupRef.current = streamProgress(taskId, {
