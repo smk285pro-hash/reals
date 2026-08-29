@@ -4,14 +4,14 @@ Gộp 2 dự án thành 1 monorepo, giữ nguyên toàn bộ git history:
 
 | Ứng dụng | Đường dẫn | Stack | Port (dev) | Vai trò |
 |---|---|---|---|---|
-| **main-app** (reals.media) | `apps/main-app/` | Next.js 16 + React 19 + Prisma 6 + PostgreSQL | 3000 | Nguồn dữ liệu chính (users, products, purchases). Auth = NextAuth v4 (Google OAuth + email/password) |
+| **main-app** (reals.media) | `.` (repo root) | Next.js 16 + React 19 + Prisma 6 + PostgreSQL | 3000 | Nguồn dữ liệu chính (users, products, purchases). Auth = NextAuth v4 (Google OAuth + email/password) |
 | **stem-app** (stem.reals.media) | `apps/stem-app/` | Next.js 15 frontend + FastAPI backend (Python) | frontend 3100, backend 3031 | AI Audio Lab Studio 2026 — tách nguồn âm (Demucs 2/4/6/8 stems), phân tích hoà âm/nhịp (Chords Viterbi HMM, BPM, Key), xuất MIDI SMF-1 |
 
 > Lưu ý: stem-app là ứng dụng 2 tiến trình — frontend Next.js (`src/`) gọi backend FastAPI (`backend/`) qua `NEXT_PUBLIC_API_URL`. Backend chứa ML workload (torch/demucs) nên phải chạy server Python riêng (Oracle Cloud GPU hoặc Modal), không chạy được trên Vercel serverless.
 
 ## Git history
 
-- `apps/main-app/` — di chuyển bằng `git mv` từ root repo `reals` (88 commits, rename detection giữ `git log --follow` hoạt động).
+- **main-app quay về root repo** (2026-08-29, sau khi merge PR #1): Vercel project `realstore` (reals.media) vốn build từ repo root từ thời single-repo. Để deploy tiếp tục chạy mà **không cần đổi Root Directory** trên dashboard, `apps/main-app/*` đã được `git mv` ngược lên root (rename detection giữ `git log --follow`). pnpm workspace vẫn hoạt động: `pnpm-workspace.yaml` (root) + `workspaces` field trong `package.json`.
 - `apps/stem-app/` — merge commit với `--allow-unrelated-histories`, parent thứ 2 trỏ tới commit gốc của repo `reals-lab-ai` (giữ nguyên vẹn lịch sử). Repo `reals-lab-ai` gốc giữ nguyên, không đụng tới.
 - ⚠️ Lịch sử nhánh đã được viết lại 1 lần (2026-08-29): import ban đầu dùng nhầm repo cũ `reals-audio-lab` (đã lỗi thời), đã thay bằng `reals-lab-ai`. Branch local `merge-monorepo-backup-wrongrepo` giữ lại trạng thái cũ để đối chiếu, có thể xoá khi đã xác nhận.
 
@@ -20,15 +20,12 @@ Gộp 2 dự án thành 1 monorepo, giữ nguyên toàn bộ git history:
 ```bash
 pnpm install                      # cài dependencies toàn workspace
 
-pnpm dev --filter main-app        # chạy main-app (next dev :3000) qua turbo
-pnpm --filter main-app dev        # tương đương, gọi trực tiếp qua pnpm
-
+pnpm dev                          # chạy main-app (root, next dev :3000)
 pnpm --filter stem-app dev        # chạy stem-app FRONTEND (next dev :3100)
 pnpm --filter stem-app backend    # chạy stem-app BACKEND (uvicorn :3031)
                                   # (cần python + uvicorn trong PATH, hoặc activate venv có đủ deps)
 
-pnpm build                        # build tất cả apps (turbo cache)
-pnpm --filter main-app build      # build riêng main-app
+pnpm build                        # build main-app (root)
 pnpm --filter stem-app build      # build riêng stem-app frontend
 ```
 
@@ -54,31 +51,29 @@ Backend tự fallback sang DSP (HPSS + librosa) khi thiếu torch/demucs/BeatNet
 
 ## Deploy
 
-- **main-app**: giữ nguyên Vercel. ⚠️ Khi merge nhánh `merge-monorepo` vào `main`, phải đổi **Root Directory** của Vercel project thành `apps/main-app` trong cùng cửa sổ bảo trì (vì code đã chuyển từ root vào subfolder). Production hiện tại không bị ảnh hưởng cho tới khi merge.
+- **main-app**: Vercel project `realstore` (reals.media), build từ **repo root** — main-app đặt tại root nên KHÔNG cần cấu hình Root Directory. Lockfile duy nhất `pnpm-lock.yaml` ở root → Vercel tự dùng pnpm; không có package-lock.json/bun.lock ở root (đã xoá để tránh Vercel detect nhầm package manager).
 - **stem-app**: 2 thành phần tách bạch:
   - **Backend** (FastAPI): production đang chạy trên **Modal serverless** (GPU T4) — `https://smk285pro--ai-audio-lab-fastapi-web.modal.run`. File deploy `apps/stem-app/modal_app.py` (đã gắn SSO + tier gating, 12 endpoint auth + quota). Deploy: `cd apps/stem-app && modal deploy modal_app.py`. Chi tiết + thứ tự deploy: `apps/stem-app/DEPLOY.md`. *(Phương án self-host VPS qua Dockerfile.backend vẫn giữ trong repo nhưng không dùng.)*
   - **Frontend** (Next.js): Vercel project riêng (Root Directory `apps/stem-app`); `.env.production` đã trỏ `NEXT_PUBLIC_API_URL` tới Modal URL + `NEXT_PUBLIC_MAIN_APP_URL=https://reals.media`.
   - SSO với main-app qua token exchange (`packages/auth-client`) — backend Modal verify bridge token với main-app, hết quota → 429.
-- **Thứ tự deploy khi lên production**: (1) merge PR monorepo vào main + chạy `apps/main-app/sql/001-add-subscription-and-usageevent.sql` trên DB + set `STEM_SSO_SECRET` trên Vercel; (2) `modal deploy` backend SSO; (3) deploy frontend stem-app. Deploy sai thứ tự → backend Modal fail-closed 503.
+- **Thứ tự deploy khi lên production**: (1) chạy `sql/001-add-subscription-and-usageevent.sql` (ở repo root) trên DB + set `STEM_SSO_SECRET` trên Vercel — PR monorepo đã merge vào main 2026-08-29; (2) `modal deploy` backend SSO; (3) deploy frontend stem-app. Deploy sai thứ tự → backend Modal fail-closed 503.
 
 ## Lockfiles
 
-- `pnpm-lock.yaml` (root) — canonical, dùng cho mọi lệnh pnpm.
-- `apps/main-app/package-lock.json` + `bun.lock` — legacy từ thời single-repo, giữ lại để tham chiếu; không dùng nữa.
-- `apps/stem-app/package-lock.json` — legacy từ repo nguồn (dùng npm), giữ lại để tham chiếu; không dùng nữa.
+- `pnpm-lock.yaml` (root) — canonical, dùng cho mọi lệnh pnpm. Importer root = main-app (đặt ở root), kèm `apps/stem-app` + `packages/*`.
+- `package-lock.json` / `bun.lock` (main-app) + `apps/stem-app/package-lock.json` — đã **xoá khỏi repo** (2026-08-29): để Vercel detect đúng pnpm qua `pnpm-lock.yaml` duy nhất, tránh cài thiếu workspace package `@reals/ui`.
 
 ## Cấu trúc dự kiến (hoàn thiện dần theo các bước)
 
 ```
 reals/
+  (repo root)         # main-app Next.js 16 — reals.media (Vercel build từ root)
   apps/
-    main-app/          # Next.js 16 — nguồn dữ liệu chính
     stem-app/          # Next.js 15 frontend + FastAPI backend — app con
   packages/
     auth-client/       # (Bước 3) @reals/auth-client — SSO client TS cho frontend
     ui/                # (Bước 5) @reals/ui — design tokens + TierBadge dùng chung
-  package.json         # pnpm workspaces + turbo
-  turbo.json
+  package.json         # main-app deps + workspaces (pnpm-workspace.yaml cạnh bên)
 ```
 
 ## packages/ui — design tokens + components (Bước 5)
@@ -116,7 +111,7 @@ Kiểm thử (2026-08-29): TS client 23/23 unit + typecheck OK; Python client 18
 
 ## Bước 4 — SSO + tier gating toàn chuỗi (đã gắn vào stem-app)
 
-**Kiến trúc quota tách nhạc** (giá trị limit ở `apps/main-app/src/lib/tiers.ts` — FREE 3 / BASIC 10 / MAX 30 / ULTRA ∞ mỗi 24h, PROVISIONAL):
+**Kiến trúc quota tách nhạc** (giá trị limit ở `src/lib/tiers.ts` — FREE 3 / BASIC 10 / MAX 30 / ULTRA ∞ mỗi 24h, PROVISIONAL):
 
 ```
 SPA stem-app ── Bearer bridge token ──► stem backend FastAPI

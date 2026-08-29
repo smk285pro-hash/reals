@@ -69,10 +69,12 @@ modal deploy modal_app.py
 Output hiển thị URL: `https://<workspace>--ai-audio-lab-fastapi-web.modal.run`
 
 > ⚠️ **THỨ TỰ DEPLOY QUAN TRỌNG**: backend Modal (bản SSO) chỉ deploy **SAU KHI**
-> main-app reals.media đã có SSO endpoints (merge PR monorepo + chạy
-> `sql/001-add-subscription-and-usageevent.sql` + set `STEM_SSO_SECRET` trên
-> Vercel). Deploy Modal SSO trước khi main-app sẵn sàng → mọi endpoint gated
-> trả 503 (fail-closed) → app vỡ.
+> main-app reals.media đã có SSO endpoints. PR monorepo đã merge vào `main`
+> (2026-08-29) — code SSO đã chạy trên Vercel; còn thiếu 2 việc trước khi
+> `modal deploy`: chạy `sql/001-add-subscription-and-usageevent.sql` (repo root)
+> trên DB production + set `STEM_SSO_SECRET` trên Vercel. Deploy Modal SSO
+> trước khi main-app sẵn sàng → mọi endpoint gated trả 503 (fail-closed) →
+> app vỡ.
 >
 > Frontend (Vercel) deploy **CUỐI CÙNG** sau khi Modal đã chạy bản SSO.
 
