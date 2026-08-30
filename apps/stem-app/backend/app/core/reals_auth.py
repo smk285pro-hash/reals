@@ -42,6 +42,7 @@ VERIFY_URL = f"{MAIN_APP_URL}/api/auth/verify-session"
 RECORD_USAGE_URL = f"{MAIN_APP_URL}/api/usage/separation"
 CACHE_TTL_SECONDS = float(os.getenv("REALS_AUTH_CACHE_TTL", "60"))
 REQUEST_TIMEOUT_SECONDS = float(os.getenv("REALS_AUTH_TIMEOUT", "5"))
+AUTH_DISABLED = os.getenv("REALS_AUTH_DISABLED", "false").lower() in ("1", "true", "yes")
 
 # Giới hạn kích thước cache chống phình bộ nhớ khi nhiều user (token 24h TTL)
 _MAX_CACHE_ENTRIES = 512
@@ -155,6 +156,18 @@ async def require_auth(authorization: Optional[str] = Header(default=None)) -> D
     Dùng:  @router.post("/api/analyze/quick/{task_id}")
            async def quick(task_id: str, user: Dict = Depends(require_auth)):
     """
+    if AUTH_DISABLED:
+        return {
+            "userId": "local-reaper-user",
+            "email": "reaper@reals.media",
+            "tier": "UNLIMITED",
+            "limit": 999999,
+            "usedToday": 0,
+            "creditsRemaining": 999999,
+            "expiresAt": None,
+            "token": "local-dev-token",
+        }
+
     if not authorization or not authorization.lower().startswith("bearer "):
         raise RealsAuthRequiredError("Thiếu Authorization: Bearer <token>")
     token = authorization[7:].strip()
@@ -170,6 +183,18 @@ async def optional_auth(authorization: Optional[str] = Header(default=None)) -> 
     hợp lệ → None (anonymous). Lưu ý service down cũng trả None (degraded).
     Chỉ dùng cho endpoint cho phép anonymous — KHÔNG dùng cho thứ cần enforce tier.
     """
+    if AUTH_DISABLED:
+        return {
+            "userId": "local-reaper-user",
+            "email": "reaper@reals.media",
+            "tier": "UNLIMITED",
+            "limit": 999999,
+            "usedToday": 0,
+            "creditsRemaining": 999999,
+            "expiresAt": None,
+            "token": "local-dev-token",
+        }
+
     if not authorization or not authorization.lower().startswith("bearer "):
         return None
     token = authorization[7:].strip()
@@ -213,6 +238,15 @@ async def consume_separation_credit(user: Dict[str, Any], meta: Optional[Dict[st
     `user` là dict do require_auth trả về (chứa khoá "token").
     `meta` (tuỳ chọn): {"taskId", "stemMode", "endpoint"...} để audit.
     """
+    if AUTH_DISABLED:
+        return {
+            "allowed": True,
+            "tier": "UNLIMITED",
+            "limit": 999999,
+            "usedToday": 0,
+            "creditsRemaining": 999999,
+        }
+
     token = user.get("token")
     if not token:
         raise RealsAuthRequiredError("Thiếu bridge token để ghi nhận lượt tách nhạc")

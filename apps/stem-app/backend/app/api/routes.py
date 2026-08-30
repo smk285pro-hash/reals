@@ -571,13 +571,14 @@ async def get_progress(task_id: str) -> StreamingResponse:
 async def get_stem(task_id: str, stem_name: str, request: Request) -> Response:
     """Serve individual audio stem WAV files supporting manual HTTP byte range requests."""
     _validate_task_id(task_id)
-    if not re.fullmatch(r"[A-Za-z0-9_\-]{1,64}", stem_name):
+    clean_stem_name = stem_name[:-4] if stem_name.lower().endswith(".wav") else stem_name
+    if not re.fullmatch(r"[A-Za-z0-9_\-]{1,64}", clean_stem_name):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Stem '{stem_name}' not found for task {task_id}",
         )
     try:
-        stem_path = SETTINGS.stems_dir / task_id / f"{stem_name}.wav"
+        stem_path = SETTINGS.stems_dir / task_id / f"{clean_stem_name}.wav"
         if not stem_path.exists():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
