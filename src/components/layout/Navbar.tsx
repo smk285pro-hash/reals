@@ -16,11 +16,14 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { useI18n } from '@/components/providers/I18nProvider'
+import { stripLocaleFromPathname } from '@/i18n/config'
 import Link from 'next/link'
 
 export function Navbar() {
+  const router = useRouter()
   const { locale, t } = useI18n()
   const {
     toggleSidebar, setSearchQuery, setCartDrawerOpen, searchQuery,
@@ -43,6 +46,23 @@ export function Navbar() {
       await navigator.share({ title: 'RealS', url: window.location.href })
     } else {
       await navigator.clipboard.writeText(window.location.href)
+    }
+  }
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    setSearchQuery(localSearch)
+    const barePath = typeof window !== 'undefined' ? stripLocaleFromPathname(window.location.pathname) : '/'
+    if (barePath !== '/') {
+      router.push(`/${locale}?search=${encodeURIComponent(localSearch)}`)
+    }
+  }
+
+  const handleNavigateCategory = (cat: string) => {
+    setActiveCategory(cat)
+    const barePath = typeof window !== 'undefined' ? stripLocaleFromPathname(window.location.pathname) : '/'
+    if (barePath !== '/') {
+      router.push(`/${locale}?category=${cat}`)
     }
   }
 
@@ -87,17 +107,20 @@ export function Navbar() {
 
       {/* Center - Search */}
       <div className="mx-4 hidden min-w-0 max-w-[600px] flex-1 md:flex">
-        <div className="flex w-full">
+        <form onSubmit={handleSearchSubmit} className="flex w-full">
           <Input
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
             placeholder={t('search')}
             className="h-10 rounded-l-full rounded-r-none border-[#303030] bg-[#121212] text-white placeholder:text-[#888] focus:border-[#3ea6ff] focus-visible:ring-0"
           />
-          <Button className="h-10 rounded-r-full rounded-l-none border border-l-0 border-[#303030] bg-[#222] text-[#aaa] hover:bg-[#272727]">
+          <Button
+            type="submit"
+            className="h-10 rounded-r-full rounded-l-none border border-l-0 border-[#303030] bg-[#222] text-[#aaa] hover:bg-[#272727] cursor-pointer"
+          >
             <Search className="h-5 w-5" />
           </Button>
-        </div>
+        </form>
       </div>
 
       {/* Right */}
@@ -108,7 +131,7 @@ export function Navbar() {
             variant="ghost"
             size="icon"
             className="hidden text-white hover:bg-[#272727] md:flex"
-            onClick={() => setActiveCategory('seller')}
+            onClick={() => handleNavigateCategory('seller')}
             title={t('upload')}
           >
             <Upload className="h-5 w-5" />
@@ -131,7 +154,7 @@ export function Navbar() {
             variant="ghost"
             size="icon"
             className="hidden text-red-400 hover:bg-red-400/10 md:flex"
-            onClick={() => setActiveCategory('admin')}
+            onClick={() => handleNavigateCategory('admin')}
             title="Admin Dashboard"
           >
             <Shield className="h-5 w-5" />
@@ -213,7 +236,7 @@ export function Navbar() {
               {(session.user as any)?.isSeller ? (
                 <DropdownMenuItem
                   className="cursor-pointer gap-2 text-[#ccc] focus:bg-[#272727] focus:text-[#f1f1f1]"
-                  onClick={() => setActiveCategory('seller')}
+                  onClick={() => handleNavigateCategory('seller')}
                 >
                   <Package className="h-4 w-4" />
                   {t('productsManage')}
@@ -230,7 +253,7 @@ export function Navbar() {
               {(session.user as any).role === 'ADMIN' && (
                 <DropdownMenuItem
                   className="cursor-pointer gap-2 text-red-400 focus:bg-red-400/10 focus:text-red-400"
-                  onClick={() => setActiveCategory('admin')}
+                  onClick={() => handleNavigateCategory('admin')}
                 >
                   <Shield className="h-4 w-4" />
                   Admin Dashboard

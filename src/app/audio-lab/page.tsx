@@ -9,6 +9,7 @@ import dynamic from "next/dynamic";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CartDrawer } from "@/components/cart/CartDrawer";
+import { CheckoutModal } from "@/components/cart/CheckoutModal";
 import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { ScrollToTop } from "@/components/ui-custom/ScrollToTop";
@@ -568,6 +569,7 @@ export default function AudioStudioPage() {
       <Navbar />
       <Sidebar />
       <CartDrawer />
+      <CheckoutModal />
       <NotificationDropdown />
       <ScrollToTop />
       <MobileNav />

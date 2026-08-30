@@ -7,10 +7,12 @@ import {
 import { useSession } from 'next-auth/react'
 import { useAppStore, useWishlistStore, useNotificationStore } from '@/stores'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { useI18n } from '@/components/providers/I18nProvider'
+import { stripLocaleFromPathname } from '@/i18n/config'
 import Link from 'next/link'
 
 const mainLinks = [
@@ -32,12 +34,22 @@ const categoryLinks = [
 ]
 
 export function Sidebar() {
-  const { t } = useI18n()
+  const router = useRouter()
+  const { locale, t } = useI18n()
   const { sidebarOpen, setActiveCategory, activeCategory, setLoginModalOpen, setSidebarOpen, setSellerApplyModalOpen, setNotificationOpen } = useAppStore()
   const wishlistCount = useWishlistStore((s) => s.items.length)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   const { data: session } = useSession()
   const [categoriesExpanded, setCategoriesExpanded] = useState(true)
+
+  const handleCategoryClick = (catId: string) => {
+    setActiveCategory(catId)
+    setSidebarOpen(false)
+    const barePath = typeof window !== 'undefined' ? stripLocaleFromPathname(window.location.pathname) : '/'
+    if (barePath !== '/') {
+      router.push(`/${locale}?category=${catId}`)
+    }
+  }
 
   if (!sidebarOpen) return null
 
@@ -110,10 +122,7 @@ export function Sidebar() {
                   ? 'bg-[#272727] font-medium text-white'
                   : 'text-[#f1f1f1] hover:bg-[#1f1f1f]'
               }`}
-              onClick={() => {
-                setActiveCategory(link.id)
-                useAppStore.getState().setSidebarOpen(false)
-              }}
+              onClick={() => handleCategoryClick(link.id)}
             >
               <link.icon className="h-5 w-5" />
               {link.id === 'all' ? t('home') : link.id === 'featured' ? t('featured') : link.id === 'best-selling' ? t('bestSelling') : link.id === 'latest' ? t('latest') : link.id === 'free' ? t('free') : link.label}
@@ -150,10 +159,7 @@ export function Sidebar() {
                       ? 'bg-[#272727] font-medium text-white'
                       : 'text-[#aaa] hover:bg-[#1f1f1f] hover:text-white'
                   }`}
-                  onClick={() => {
-                    setActiveCategory(link.id)
-                    useAppStore.getState().setSidebarOpen(false)
-                  }}
+                  onClick={() => handleCategoryClick(link.id)}
                 >
                   <link.icon className="h-4 w-4" />
                   {link.label}
@@ -167,10 +173,7 @@ export function Sidebar() {
           <Button
             variant="ghost"
             className="w-full justify-start gap-6 px-3 text-sm text-[#f1f1f1] hover:bg-[#1f1f1f]"
-            onClick={() => {
-              setActiveCategory('wishlist')
-              useAppStore.getState().setSidebarOpen(false)
-            }}
+            onClick={() => handleCategoryClick('wishlist')}
           >
             <Heart className="h-5 w-5" />
             {t('wishlist')}
@@ -210,10 +213,7 @@ export function Sidebar() {
                   ? 'bg-[#272727] font-medium text-[#f5a623]'
                   : 'text-[#f1f1f1] hover:bg-[#1f1f1f]'
               }`}
-              onClick={() => {
-                setActiveCategory('seller')
-                useAppStore.getState().setSidebarOpen(false)
-              }}
+              onClick={() => handleCategoryClick('seller')}
             >
               <LayoutDashboard className="h-5 w-5" />
               Seller Dashboard
