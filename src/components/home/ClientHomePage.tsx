@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Navbar } from '@/components/layout/Navbar'
 import { CategoryBar } from '@/components/layout/CategoryBar'
@@ -118,6 +118,91 @@ export function ClientHomePage({
       setLoading(false)
     }
   }, [activeCategory, searchQuery, sortBy])
+
+  const isPopStateRef = useRef(false)
+
+  // 1. Initial URL search params hydration and browser back/forward (popstate) listener
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const initialCat = searchParams.get('category')
+    const initialProd = searchParams.get('product')
+    const initialSearch = searchParams.get('search')
+
+    if (initialCat && initialCat !== useAppStore.getState().activeCategory) {
+      useAppStore.setState({ activeCategory: initialCat })
+    }
+    if (initialProd && initialProd !== useAppStore.getState().detailProductId) {
+      useAppStore.setState({ detailProductId: initialProd })
+    }
+    if (initialSearch && initialSearch !== useAppStore.getState().searchQuery) {
+      useAppStore.setState({ searchQuery: initialSearch })
+    }
+
+    const handlePopState = () => {
+      isPopStateRef.current = true
+      const params = new URLSearchParams(window.location.search)
+      const cat = params.get('category') || 'all'
+      const prod = params.get('product') || null
+      const query = params.get('search') || ''
+
+      useAppStore.setState({
+        activeCategory: cat,
+        detailProductId: prod,
+        searchQuery: query,
+        cartDrawerOpen: false,
+        sidebarOpen: false,
+        loginModalOpen: false,
+        registerModalOpen: false,
+        forgotPasswordModalOpen: false,
+        sellerApplyModalOpen: false,
+      })
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  // 2. Synchronize store state into browser history stack (pushState)
+  useEffect(() => {
+    if (isInitialRender) return
+    if (typeof window === 'undefined') return
+    if (isPopStateRef.current) {
+      isPopStateRef.current = false
+      return
+    }
+
+    const params = new URLSearchParams(window.location.search)
+
+    if (activeCategory && activeCategory !== 'all') {
+      params.set('category', activeCategory)
+    } else {
+      params.delete('category')
+    }
+
+    if (searchQuery) {
+      params.set('search', searchQuery)
+    } else {
+      params.delete('search')
+    }
+
+    if (detailProductId) {
+      params.set('product', detailProductId)
+    } else {
+      params.delete('product')
+    }
+
+    const newQuery = params.toString()
+    const targetUrl = newQuery ? `${window.location.pathname}?${newQuery}` : window.location.pathname
+    const currentFullUrl = window.location.pathname + window.location.search
+
+    if (targetUrl !== currentFullUrl) {
+      window.history.pushState({ reals: true, activeCategory, detailProductId, searchQuery }, '', targetUrl)
+    }
+  }, [activeCategory, detailProductId, searchQuery, isInitialRender])
 
   useEffect(() => {
     if (isInitialRender) {

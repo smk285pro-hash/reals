@@ -196,12 +196,20 @@ export function ProductDetail({ product }: ProductDetailProps) {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleClose = () => {
+    if (typeof window !== 'undefined' && window.location.search.includes('product=')) {
+      window.history.back()
+    } else {
+      setDetailProductId(null)
+    }
+  }
+
   return (
     <>
       {/* Overlay */}
       <div
         className="fixed inset-0 z-50 bg-black/70"
-        onClick={() => setDetailProductId(null)}
+        onClick={handleClose}
       />
 
       {/* Modal */}
@@ -280,7 +288,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                 variant="ghost"
                 size="icon"
                 className="text-[#aaa] hover:bg-[#272727] hover:text-white"
-                onClick={() => setDetailProductId(null)}
+                onClick={handleClose}
               >
                 <X className="h-5 w-5" />
               </Button>
