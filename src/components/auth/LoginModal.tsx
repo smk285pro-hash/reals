@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ open, onOpenChange, onSwitchToRegister, onSwitchToForgot }: LoginModalProps) {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -48,6 +50,7 @@ export function LoginModal({ open, onOpenChange, onSwitchToRegister, onSwitchToF
         onOpenChange(false)
         setEmail('')
         setPassword('')
+        router.refresh()
       }
     } catch {
       setError('Có lỗi xảy ra khi đăng nhập')
@@ -59,7 +62,8 @@ export function LoginModal({ open, onOpenChange, onSwitchToRegister, onSwitchToF
   const handleGoogleLogin = async () => {
     setGoogleLoading(true)
     try {
-      await signIn('google', { callbackUrl: '/' })
+      const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/'
+      await signIn('google', { callbackUrl: currentUrl || '/' })
     } catch {
       setError('Có lỗi xảy ra khi đăng nhập bằng Google')
       setGoogleLoading(false)
