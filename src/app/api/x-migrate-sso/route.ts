@@ -1,4 +1,4 @@
-// POST /api/admin/migrate-sso — chạy 1 LẦN để tạo bảng Subscription + UsageEvent
+// POST /api/x-migrate-sso — chạy 1 LẦN để tạo bảng Subscription + UsageEvent
 // (sql/001-add-subscription-and-usageevent.sql) trên production DB.
 //
 // An toàn:
