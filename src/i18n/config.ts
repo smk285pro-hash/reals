@@ -66,5 +66,11 @@ export function localizePathname(pathname: string, locale: Locale): string {
 
 export function isPublicSeoPath(pathname: string): boolean {
   const barePath = stripLocaleFromPathname(pathname)
-  return barePath === '/' || barePath === '/products' || barePath.startsWith('/products/')
+  return (
+    barePath === '/' ||
+    barePath === '/products' ||
+    barePath.startsWith('/products/') ||
+    barePath === '/audio-lab' ||
+    barePath.startsWith('/audio-lab')
+  )
 }
