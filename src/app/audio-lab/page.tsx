@@ -5,6 +5,31 @@ import { useSession } from "next-auth/react";
 import { useAppStore } from "@/stores";
 import { toast } from "sonner";
 
+import dynamic from "next/dynamic";
+import { Navbar } from "@/components/layout/Navbar";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { CartDrawer } from "@/components/cart/CartDrawer";
+import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
+import { MobileNav } from "@/components/layout/MobileNav";
+import { ScrollToTop } from "@/components/ui-custom/ScrollToTop";
+
+const LoginModal = dynamic(
+  () => import("@/components/auth/LoginModal").then((m) => m.LoginModal),
+  { ssr: false }
+);
+const RegisterModal = dynamic(
+  () => import("@/components/auth/RegisterModal").then((m) => m.RegisterModal),
+  { ssr: false }
+);
+const ForgotPasswordModal = dynamic(
+  () => import("@/components/auth/ForgotPasswordModal").then((m) => m.ForgotPasswordModal),
+  { ssr: false }
+);
+const SellerApplyModal = dynamic(
+  () => import("@/components/auth/SellerApplyModal").then((m) => m.SellerApplyModal),
+  { ssr: false }
+);
+
 import { Header } from "@/components/audio-lab/Header";
 import { UploadZone } from "@/components/audio-lab/UploadZone";
 import { FeatureModePicker } from "@/components/audio-lab/FeatureModePicker";
@@ -45,7 +70,16 @@ import { audioEngine } from "@/lib/audio-lab/web-audio-engine";
 
 export default function AudioStudioPage() {
   const { data: session, status: authStatus } = useSession();
-  const { setLoginModalOpen } = useAppStore();
+  const {
+    loginModalOpen,
+    setLoginModalOpen,
+    registerModalOpen,
+    setRegisterModalOpen,
+    forgotPasswordModalOpen,
+    setForgotPasswordModalOpen,
+    sellerApplyModalOpen,
+    setSellerApplyModalOpen,
+  } = useAppStore();
 
   const [phase, setPhase] = useState<StudioPhase>("IDLE");
   const [featureMode, setFeatureMode] = useState<FeatureMode>("all");
@@ -435,7 +469,49 @@ export default function AudioStudioPage() {
     deepInitiating;
 
   return (
-    <main className="min-h-screen bg-[#0a0a0f] text-zinc-100 flex flex-col font-sans pb-20 selection:bg-amber-500 selection:text-black">
+    <div className="flex min-h-screen flex-col bg-[#0a0a0f] text-zinc-100 font-sans pb-20 selection:bg-amber-500 selection:text-black">
+      {/* RealS Global Navigation Bar */}
+      <Navbar />
+      <Sidebar />
+      <CartDrawer />
+      <NotificationDropdown />
+      <ScrollToTop />
+      <MobileNav />
+
+      {/* Auth Modals */}
+      <LoginModal
+        open={loginModalOpen}
+        onOpenChange={(open) => setLoginModalOpen(open)}
+        onSwitchToRegister={() => {
+          setLoginModalOpen(false);
+          setTimeout(() => setRegisterModalOpen(true), 150);
+        }}
+        onSwitchToForgot={() => {
+          setLoginModalOpen(false);
+          setTimeout(() => setForgotPasswordModalOpen(true), 150);
+        }}
+      />
+      <RegisterModal
+        open={registerModalOpen}
+        onOpenChange={(open) => setRegisterModalOpen(open)}
+        onSwitchToLogin={() => {
+          setRegisterModalOpen(false);
+          setTimeout(() => setLoginModalOpen(true), 150);
+        }}
+      />
+      <ForgotPasswordModal
+        open={forgotPasswordModalOpen}
+        onOpenChange={(open) => setForgotPasswordModalOpen(open)}
+        onSwitchToLogin={() => {
+          setForgotPasswordModalOpen(false);
+          setTimeout(() => setLoginModalOpen(true), 150);
+        }}
+      />
+      <SellerApplyModal
+        open={sellerApplyModalOpen}
+        onOpenChange={setSellerApplyModalOpen}
+      />
+
       {/* Studio Header Bar */}
       <Header onReset={handleReset} isProcessing={isDeepRunning} />
 
@@ -637,6 +713,6 @@ export default function AudioStudioPage() {
           onClose={() => setEditingChordIndex(null)}
         />
       )}
-    </main>
+    </div>
   );
 }
