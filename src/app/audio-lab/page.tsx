@@ -132,6 +132,80 @@ export default function AudioStudioPage() {
       ? chordsResult.telemetry
       : quickTelemetry;
 
+  // Sync URL search params with featureMode and Browser Back/Forward
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const initialMode = params.get("mode") as FeatureMode | null;
+    if (
+      initialMode &&
+      ["all", "tempo", "chords", "stems", "denoise"].includes(initialMode)
+    ) {
+      setFeatureMode(initialMode);
+    }
+
+    const handlePopState = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      const modeParam = currentParams.get("mode") as FeatureMode | null;
+      const taskIdParam = currentParams.get("taskId");
+
+      if (
+        modeParam &&
+        ["all", "tempo", "chords", "stems", "denoise"].includes(modeParam)
+      ) {
+        setFeatureMode(modeParam);
+      } else {
+        setFeatureMode("all");
+      }
+
+      // If user pressed back to upload screen (no taskId in URL)
+      if (!taskIdParam) {
+        setPhase("IDLE");
+        setTaskId(null);
+        setDuration(0);
+        setMasterAudioUrl(null);
+        setWaveformUrl(null);
+        setQuickTelemetry(null);
+        setDeepResult(null);
+        setChordsResult(null);
+        setStemsResult(null);
+        setDenoiseResult(null);
+        setRawChords([]);
+        setDisplayedChords([]);
+        setTransposeSemitones(0);
+        setActiveChordParsed(null);
+        setActiveChordName("");
+        setEditingChordIndex(null);
+        setErrorMessage(null);
+        audioEngine.destroy();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  const handleModeChange = (newMode: FeatureMode) => {
+    setFeatureMode(newMode);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (newMode !== "all") {
+        params.set("mode", newMode);
+      } else {
+        params.delete("mode");
+      }
+      params.delete("taskId");
+      const newQuery = params.toString();
+      const newUrl = newQuery
+        ? `${window.location.pathname}?${newQuery}`
+        : window.location.pathname;
+      window.history.pushState({ mode: newMode, phase: "IDLE" }, "", newUrl);
+    }
+  };
+
   // 1. Upload completed handler
   const handleUploaded = (
     id: string,
@@ -144,6 +218,16 @@ export default function AudioStudioPage() {
     setMasterAudioUrl(audioUrl);
     setWaveformUrl(wUrl);
     setErrorMessage(null);
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("taskId", id);
+      if (featureMode !== "all") {
+        params.set("mode", featureMode);
+      }
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.pushState({ mode: featureMode, taskId: id }, "", newUrl);
+    }
 
     // Standalone feature modes launch their pipeline
     if (featureMode === "chords") {
@@ -449,6 +533,16 @@ export default function AudioStudioPage() {
     setActiveChordName("");
     setEditingChordIndex(null);
     setErrorMessage(null);
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("taskId");
+      const newQuery = params.toString();
+      const newUrl = newQuery
+        ? `${window.location.pathname}?${newQuery}`
+        : window.location.pathname;
+      window.history.pushState({ mode: featureMode, phase: "IDLE" }, "", newUrl);
+    }
   };
 
   const handleSavedChord = (index: number, newChord: string) => {
@@ -539,7 +633,7 @@ export default function AudioStudioPage() {
           <div className="space-y-6 py-6">
             <FeatureModePicker
               mode={featureMode}
-              onChange={setFeatureMode}
+              onChange={handleModeChange}
               stemMode={stemMode}
               onStemModeChange={setStemMode}
               denoiseStrength={denoiseStrength}
@@ -551,22 +645,8 @@ export default function AudioStudioPage() {
               onUploaded={handleUploaded}
               onQuick={handleQuickAnalyzed}
               onError={(err) => setErrorMessage(err)}
-              onUploadStart={() => setPhase("UPLOADING")}
             />
           </div>
-        )}
-
-        {/* Phase 2: UPLOADING */}
-        {phase === "UPLOADING" && (
-          <UploadZone
-            featureMode={featureMode}
-            onUploaded={handleUploaded}
-            onQuick={handleQuickAnalyzed}
-            onError={(err) => {
-              setErrorMessage(err);
-              setPhase("IDLE");
-            }}
-          />
         )}
 
         {/* Running Pipeline Progress Indicator */}
