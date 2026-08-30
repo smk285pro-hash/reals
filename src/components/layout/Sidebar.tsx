@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { useI18n } from '@/components/providers/I18nProvider'
-
+import Link from 'next/link'
 
 const mainLinks = [
   { icon: Home, label: 'Trang chủ', id: 'all' },
@@ -85,6 +85,21 @@ export function Sidebar() {
         )}
 
         <div className="flex-1 space-y-1 px-3 py-4">
+          {/* AI Audio Lab Highlight Banner */}
+          <Link
+            href="/audio-lab"
+            onClick={() => useAppStore.getState().setSidebarOpen(false)}
+            className="block mb-2"
+          >
+            <Button
+              className="w-full justify-start gap-3 rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-purple-600/15 to-transparent px-3 py-2.5 text-sm font-bold text-amber-400 hover:from-amber-500/25 hover:border-amber-500/60 transition-all cursor-pointer"
+            >
+              <span className="text-base">⚡</span>
+              AI Audio Lab
+              <span className="ml-auto rounded-full bg-gradient-to-r from-amber-500 to-purple-600 px-1.5 py-0.5 text-[9px] font-bold text-white">AI</span>
+            </Button>
+          </Link>
+
           {/* Main navigation */}
           {mainLinks.map((link) => (
             <Button
@@ -207,8 +222,6 @@ export function Sidebar() {
             <Button
               className="w-full justify-start gap-3 rounded-lg border border-[#f5a623]/30 bg-gradient-to-r from-[#f5a623]/10 to-transparent px-3 py-2.5 text-sm font-medium text-[#f5a623] hover:from-[#f5a623]/20 hover:border-[#f5a623]/50 transition-all"
               onClick={() => {
-                // Open modal FIRST, then close sidebar after a tiny delay
-                // This ensures the modal renders before sidebar unmounts
                 useAppStore.getState().setSellerApplyModalOpen(true)
                 setTimeout(() => useAppStore.getState().setSidebarOpen(false), 50)
               }}

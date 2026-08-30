@@ -144,6 +144,17 @@ export function Navbar() {
         >
           <Video className="h-5 w-5" />
         </Button>
+        <Link href="/audio-lab">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 text-amber-400 hover:bg-amber-500/20 cursor-pointer"
+            title="AI Audio Lab - Tách nhạc & Hòa âm AI"
+          >
+            <span className="text-sm">⚡</span>
+            <span className="hidden lg:inline text-xs font-bold">Audio Lab</span>
+          </Button>
+        </Link>
         <LanguageSwitcher />
         <Button
           variant="ghost"

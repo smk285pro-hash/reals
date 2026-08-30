@@ -55,3 +55,6 @@ prompt
 
 # Skills directory
 /skills/
+.gitnexus
+.agents
+.tmp-*
