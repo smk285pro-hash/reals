@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useAppStore } from "@/stores";
+import { toast } from "sonner";
 import { quickAnalyze, uploadWithProgress } from "@/lib/audio-lab/api-client";
 import { FeatureMode, TelemetryData } from "@/lib/audio-lab/types";
 
@@ -12,14 +15,37 @@ interface UploadZoneProps {
   featureMode: FeatureMode;
 }
 
-export const UploadZone: React.FC<UploadZoneProps> = ({ onUploaded, onQuick, onError, onUploadStart, featureMode }) => {
+export const UploadZone: React.FC<UploadZoneProps> = ({
+  onUploaded,
+  onQuick,
+  onError,
+  onUploadStart,
+  featureMode,
+}) => {
+  const { status: authStatus } = useSession();
+  const { setLoginModalOpen } = useAppStore();
+
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadPercent, setUploadPercent] = useState<number>(0);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const requireAuth = (): boolean => {
+    if (authStatus !== "authenticated") {
+      toast.info("Vui lòng đăng nhập tài khoản RealS trước khi tải tệp lên (Miễn phí)", {
+        duration: 4000,
+      });
+      setLoginModalOpen(true);
+      return false;
+    }
+    return true;
+  };
+
   const handleFileProcess = async (file: File) => {
+    // 0. Auth check - MUST be logged in to upload
+    if (!requireAuth()) return;
+
     // 1. Validation
     const validExtensions = [".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac", ".aiff", ".wma"];
     const fileNameLower = file.name.toLowerCase();
@@ -80,9 +106,16 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onUploaded, onQuick, onE
     }
   };
 
+  const handleClickZone = () => {
+    if (isUploading) return;
+    if (!requireAuth()) return;
+    fileInputRef.current?.click();
+  };
+
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
+    if (!requireAuth()) return;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       void handleFileProcess(e.dataTransfer.files[0]);
     }
@@ -106,13 +139,15 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onUploaded, onQuick, onE
     }
   };
 
+  const isAuthenticated = authStatus === "authenticated";
+
   return (
     <div className="w-full max-w-3xl mx-auto my-8 px-4">
       <div
         onDrop={onDrop}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
-        onClick={() => !isUploading && fileInputRef.current?.click()}
+        onClick={handleClickZone}
         className={`relative border-2 border-dashed rounded-2xl p-6 sm:p-10 text-center cursor-pointer transition-all duration-200 ${
           isDragging
             ? "border-amber-500 bg-amber-500/10 scale-[1.01]"
@@ -130,22 +165,46 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onUploaded, onQuick, onE
         {!isUploading ? (
           <div className="flex flex-col items-center space-y-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-purple-500/20 border border-amber-500/30 flex items-center justify-center text-3xl shadow-inner">
-              🎵
+              {isAuthenticated ? "🎵" : "🔒"}
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-bold text-zinc-100">
-                Kéo thả tệp bài hát hoặc nhấp để chọn tệp
+                {isAuthenticated
+                  ? "Kéo thả tệp bài hát hoặc nhấp để chọn tệp"
+                  : "Đăng nhập để tải bài hát lên và sử dụng AI Audio Lab"}
               </h3>
               <p className="text-xs text-zinc-400">
-                Hỗ trợ định dạng MP3, WAV, FLAC, M4A, OGG, AAC (Tối đa 100 MB)
+                {isAuthenticated
+                  ? "Hỗ trợ định dạng MP3, WAV, FLAC, M4A, OGG, AAC (Tối đa 100 MB)"
+                  : "Đăng nhập tài khoản RealS miễn phí để mở khóa toàn bộ tính năng tách nhạc & hòa âm AI"}
               </p>
             </div>
-            <div className="inline-flex items-center px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 border border-zinc-700 transition">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              Chọn tệp từ máy tính
-            </div>
+
+            {isAuthenticated ? (
+              <div className="inline-flex items-center px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 border border-zinc-700 transition">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+                Chọn tệp từ máy tính
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLoginModalOpen(true);
+                }}
+                className="inline-flex items-center px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-400 hover:to-purple-500 text-xs font-bold text-black border border-amber-400 shadow-md shadow-amber-500/20 transition cursor-pointer"
+              >
+                <span className="mr-2 text-sm">🔑</span>
+                Đăng nhập tài khoản RealS (Miễn phí)
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-5 max-w-md mx-auto py-2">
