@@ -85,20 +85,23 @@ async def _save_upload_file(file: UploadFile) -> Tuple[str, Path]:
     max_bytes = MAX_UPLOAD_MB * 1024 * 1024
     total_bytes = 0
 
-    with open(original_path, "wb") as f_out:
-        while True:
-            chunk = await file.read(64 * 1024)
-            if not chunk:
-                break
-            total_bytes += len(chunk)
-            if total_bytes > max_bytes:
-                if original_path.exists():
-                    original_path.unlink(missing_ok=True)
-                raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail=f"File exceeds maximum allowed limit of {MAX_UPLOAD_MB} MB",
-                )
-            f_out.write(chunk)
+    try:
+        with open(original_path, "wb") as f_out:
+            while True:
+                chunk = await file.read(64 * 1024)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > max_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File exceeds maximum allowed limit of {MAX_UPLOAD_MB} MB",
+                    )
+                f_out.write(chunk)
+    except Exception:
+        if original_path.exists():
+            original_path.unlink(missing_ok=True)
+        raise
 
     return task_id, original_path
 
@@ -213,20 +216,23 @@ async def upload_audio(
         max_bytes = MAX_UPLOAD_MB * 1024 * 1024
         total_bytes = 0
 
-        with open(original_path, "wb") as f_out:
-            while True:
-                chunk = await file.read(64 * 1024)
-                if not chunk:
-                    break
-                total_bytes += len(chunk)
-                if total_bytes > max_bytes:
-                    if original_path.exists():
-                        original_path.unlink(missing_ok=True)
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail=f"File exceeds maximum allowed limit of {MAX_UPLOAD_MB} MB",
-                    )
-                f_out.write(chunk)
+        try:
+            with open(original_path, "wb") as f_out:
+                while True:
+                    chunk = await file.read(64 * 1024)
+                    if not chunk:
+                        break
+                    total_bytes += len(chunk)
+                    if total_bytes > max_bytes:
+                        raise HTTPException(
+                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            detail=f"File exceeds maximum allowed limit of {MAX_UPLOAD_MB} MB",
+                        )
+                    f_out.write(chunk)
+        except Exception:
+            if original_path.exists():
+                original_path.unlink(missing_ok=True)
+            raise
 
         def _process() -> Tuple[float, List[List[float]]]:
             stereo_raw, sr_in = load_any_format(original_path)
@@ -1038,6 +1044,21 @@ async def v1_chords(
         )
         result = await asyncio.to_thread(run_chords_analysis, stereo_path, mono_path, None)
         result["task_id"] = task_id
+
+        # Register task and pre-export multi-track MIDI so subsequent GET /api/export/midi/{task_id} succeeds
+        TASK_MANAGER.create(task_id)
+        try:
+            chords_data = [ChordSegment(**c) for c in result.get("chords", [])]
+            beats_data = [BeatPoint(**b) for b in result.get("beats", [])]
+            bass_data = [BassNote(**b) for b in result.get("bassline", [])]
+            bpm_val = float(result.get("telemetry", {}).get("bpm", 120.0))
+            await asyncio.to_thread(export_midi, task_id, chords_data, bass_data, beats_data, bpm_val)
+        except Exception:
+            pass
+
+        TASK_MANAGER.attach_result(task_id, result)
+        TASK_MANAGER.update(task_id, status="COMPLETE", stage="Hoàn tất", percent=100)
+
         return result
     except HTTPException:
         raise

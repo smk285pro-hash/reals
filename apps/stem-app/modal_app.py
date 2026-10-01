@@ -26,7 +26,6 @@ thư mục `backend/` cạnh file này). Xem DEPLOY.md cho thứ tự deploy đ�
 from __future__ import annotations
 
 import asyncio
-import io
 import json
 import os
 from pathlib import Path
@@ -194,6 +193,23 @@ def _write_task_state(status_file: Path, task_id: str, state: str, stage: str, p
     }
     status_file.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     storage_volume.commit()
+
+
+def _build_stems_zip(stems_dir: Path, zip_path: Path) -> int:
+    wav_files = sorted(stems_dir.glob("*.wav"))
+    if not wav_files:
+        raise FileNotFoundError(f"No stem files found in {stems_dir}")
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    part_path = zip_path.with_suffix(zip_path.suffix + ".part")
+    part_path.unlink(missing_ok=True)
+    try:
+        with zipfile.ZipFile(part_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+            for wav_path in wav_files:
+                archive.write(wav_path, arcname=wav_path.name)
+        os.replace(part_path, zip_path)
+    finally:
+        part_path.unlink(missing_ok=True)
+    return zip_path.stat().st_size
 
 
 # ============================================================================
@@ -398,6 +414,9 @@ def analyze_stems_task(task_id: str, stem_mode: str) -> Dict[str, Any]:
 
         result = run_stems_only(master_stereo, task_id, stem_mode, _stem_progress)
         result["task_id"] = task_id
+        zip_path = SETTINGS.export_dir / task_id / "stems.zip"
+        result["zip_bytes"] = _build_stems_zip(SETTINGS.stems_dir / task_id, zip_path)
+        result["zip_url"] = f"/api/export/stems-zip/{task_id}"
 
         result_file.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
         _write_task_state(status_file, task_id, "COMPLETE", "Hoan tat tach stem", 100)
@@ -1178,34 +1197,32 @@ def fastapi_web() -> Any:
             filename=f"multi_track_{task_id}.mid",
         )
 
-    @web_app.get("/api/export/stems-zip/{task_id}")
-    async def export_stems_zip(task_id: str) -> StreamingResponse:
-        """Download in-memory ZIP archive containing all separated stem audio files."""
+    @web_app.api_route("/api/export/stems-zip/{task_id}", methods=["GET", "HEAD"])
+    async def export_stems_zip(task_id: str) -> FileResponse:
+        """Serve the ZIP artifact built once by the stem worker."""
         await storage_volume.reload.aio()
-        stems_dir = SETTINGS.stems_dir / task_id
-        if not stems_dir.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Stems directory not found for task {task_id}",
-            )
+        zip_path = SETTINGS.export_dir / task_id / "stems.zip"
+        if not zip_path.exists():
+            stems_dir = SETTINGS.stems_dir / task_id
+            if not stems_dir.exists():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Stems directory not found for task {task_id}",
+                )
+            try:
+                await asyncio.to_thread(_build_stems_zip, stems_dir, zip_path)
+                await storage_volume.commit.aio()
+            except FileNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(exc),
+                ) from exc
 
-        wav_files = list(stems_dir.glob("*.wav"))
-        if not wav_files:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No stem files found for task {task_id}",
-            )
-
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            for wf in wav_files:
-                zip_file.write(wf, arcname=wf.name)
-
-        zip_buffer.seek(0)
-        return StreamingResponse(
-            zip_buffer,
+        return FileResponse(
+            path=str(zip_path),
             media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename=stems_{task_id}.zip"},
+            filename=f"stems_{task_id}.zip",
+            headers={"Accept-Ranges": "bytes", "Cache-Control": "private, max-age=86400"},
         )
 
     @web_app.get("/api/export/json/{task_id}")

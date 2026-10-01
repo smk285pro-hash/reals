@@ -44,6 +44,11 @@ CACHE_TTL_SECONDS = float(os.getenv("REALS_AUTH_CACHE_TTL", "60"))
 REQUEST_TIMEOUT_SECONDS = float(os.getenv("REALS_AUTH_TIMEOUT", "5"))
 AUTH_DISABLED = os.getenv("REALS_AUTH_DISABLED", "false").lower() in ("1", "true", "yes")
 
+
+def is_auth_disabled() -> bool:
+    """Return True if local DAW / dev mode is active (REALS_AUTH_DISABLED=true)."""
+    return os.getenv("REALS_AUTH_DISABLED", "false").lower() in ("1", "true", "yes")
+
 # Giới hạn kích thước cache chống phình bộ nhớ khi nhiều user (token 24h TTL)
 _MAX_CACHE_ENTRIES = 512
 
@@ -156,7 +161,7 @@ async def require_auth(authorization: Optional[str] = Header(default=None)) -> D
     Dùng:  @router.post("/api/analyze/quick/{task_id}")
            async def quick(task_id: str, user: Dict = Depends(require_auth)):
     """
-    if AUTH_DISABLED:
+    if is_auth_disabled():
         return {
             "userId": "local-reaper-user",
             "email": "reaper@reals.media",
@@ -183,7 +188,7 @@ async def optional_auth(authorization: Optional[str] = Header(default=None)) -> 
     hợp lệ → None (anonymous). Lưu ý service down cũng trả None (degraded).
     Chỉ dùng cho endpoint cho phép anonymous — KHÔNG dùng cho thứ cần enforce tier.
     """
-    if AUTH_DISABLED:
+    if is_auth_disabled():
         return {
             "userId": "local-reaper-user",
             "email": "reaper@reals.media",
@@ -238,7 +243,7 @@ async def consume_separation_credit(user: Dict[str, Any], meta: Optional[Dict[st
     `user` là dict do require_auth trả về (chứa khoá "token").
     `meta` (tuỳ chọn): {"taskId", "stemMode", "endpoint"...} để audit.
     """
-    if AUTH_DISABLED:
+    if is_auth_disabled():
         return {
             "allowed": True,
             "tier": "UNLIMITED",
