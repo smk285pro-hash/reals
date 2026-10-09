@@ -49,7 +49,10 @@ export async function generateMetadata(): Promise<Metadata> {
     category: 'technology',
     alternates: localizedAlternates(locale),
     verification: {
-      google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION || 'Wj1kBciTa23yEPyuhdQozio9fukgfcJ3zPDOoIkb0iU',
+      google: [
+        process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION || 'Wj1kBciTa23yEPyuhdQozio9fukgfcJ3zPDOoIkb0iU',
+        'CyTT7zPN5LgjcHt5hVHp5TVwCQ3EvW9p24j2nAaGtKA',
+      ],
       other: {
         'msvalidate.01': 'D0E0BE6F3CBB9C3ACCD90560EF8F5277',
       },
