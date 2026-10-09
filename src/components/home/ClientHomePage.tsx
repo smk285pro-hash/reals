@@ -271,12 +271,63 @@ export function ClientHomePage({
             <div className="mx-auto max-w-[1400px]">
               {/* Header section for Accessibility & SEO */}
               <div className="px-4 pt-6 md:px-6">
+                <div className="mb-3 inline-flex flex-wrap items-center gap-2 rounded-full border border-[#f5a623]/30 bg-[#f5a623]/10 px-3 py-1 text-xs font-medium text-[#f5a623]">
+                  <span>RealS AI · Founded Jan 2025</span>
+                  <span className="text-[#666]">•</span>
+                  <span>Powered by Anthropic Claude Sonnet 4.5 &amp; Model Context Protocol (MCP)</span>
+                </div>
                 <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
                   {seoCopy(locale).homeTitle}
                 </h1>
-                <p className="mt-2 text-sm text-[#aaa]">
+                <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#aaa]">
                   {seoCopy(locale).homeDescription}
                 </p>
+
+                {!searchQuery && activeCategory === 'all' && (
+                  <section aria-label="AI Platform Architecture" className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="rounded-xl border border-[#2a2a2a] bg-[#161616] p-4">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#f5a623]">
+                          Claude MCP Studio Agent
+                        </h2>
+                        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                          Production
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-[#b5b5b5]">
+                        Parses natural-language studio briefs into structured Model Context Protocol (MCP) tool calls, ReaScript, and JSFX DSP code with human-in-the-loop review before applying DAW project changes.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[#2a2a2a] bg-[#161616] p-4">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#f5a623]">
+                          AI Stem &amp; DSP Automation
+                        </h2>
+                        <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-medium text-blue-400">
+                          Audio Lab
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-[#b5b5b5]">
+                        Solves repetitive post-production setup with GPU-accelerated multi-track stem separation, harmonic chord analysis, MIDI transcription, and automated routing templates for engineering teams.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[#2a2a2a] bg-[#161616] p-4">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#f5a623]">
+                          Session Diagnostics &amp; Evals
+                        </h2>
+                        <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
+                          Roadmap
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-[#b5b5b5]">
+                        Advancing multi-turn MCP tool-use reliability, strict JSON schema extraction, automated DSP code evaluation (evals) pipelines, and prompt-cached low-latency studio sessions.
+                      </p>
+                    </div>
+                  </section>
+                )}
               </div>
 
               {/* Trending section */}

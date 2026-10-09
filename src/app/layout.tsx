@@ -92,16 +92,45 @@ export const viewport = {
   themeColor: "#0f0f0f",
 };
 
-const siteDescription = 'Marketplace plugin, JSFX, ReaScript, extension và template chuyên nghiệp dành cho REAPER DAW.'
+const siteDescription = 'RealS AI (reals.media) is an AI workflow automation platform for media and audio engineering teams, built on Anthropic Claude API and Model Context Protocol (MCP) for DSP scripting, stem separation, and REAPER DAW automation.'
 
 const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   '@id': `${siteUrl}/#organization`,
   name: siteName,
+  legalName: 'RealS AI',
+  alternateName: ['RealS AI', 'RealS Media', 'reals.media'],
   url: siteUrl,
   logo: `${siteUrl}/reals-mark.png`,
   description: siteDescription,
+  foundingDate: '2025-01',
+  founder: {
+    '@type': 'Person',
+    name: 'Bao Phuc Nguyen',
+    jobTitle: 'Founder & CEO',
+  },
+  email: 'ceo@reals.media',
+  contactPoint: [
+    {
+      '@type': 'ContactPoint',
+      email: 'ceo@reals.media',
+      contactType: 'founder',
+    },
+    {
+      '@type': 'ContactPoint',
+      email: 'founder@reals.media',
+      contactType: 'technical support',
+    },
+  ],
+  knowsAbout: [
+    'Anthropic Claude API',
+    'Claude Sonnet 4.5',
+    'Model Context Protocol (MCP)',
+    'AI Audio Workflow Automation',
+    'DSP Code Generation',
+    'REAPER DAW',
+  ],
 }
 
 const websiteJsonLd = {
@@ -110,9 +139,15 @@ const websiteJsonLd = {
   '@id': `${siteUrl}/#website`,
   url: siteUrl,
   name: siteName,
+  alternateName: 'RealS AI',
   description: siteDescription,
   publisher: { '@id': `${siteUrl}/#organization` },
   inLanguage: locales,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: `${siteUrl}/en/products?q={search_term_string}`,
+    'query-input': 'required name=search_term_string',
+  },
 }
 
 export default async function RootLayout({

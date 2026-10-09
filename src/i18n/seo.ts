@@ -47,8 +47,8 @@ export interface SeoCopy {
 }
 
 const en: SeoCopy = {
-  homeTitle: 'RealS — REAPER Plugins & Scripts Marketplace',
-  homeDescription: 'Discover professional plugins, JSFX, ReaScript, extensions and templates built for the REAPER digital audio workstation.',
+  homeTitle: 'RealS AI - AI Audio Workflow & REAPER MCP Platform',
+  homeDescription: 'AI audio workflow automation platform built on Anthropic Claude & Model Context Protocol (MCP) for DSP scripting, stem separation, and REAPER DAW.',
   productsTitle: 'REAPER Products',
   productsHeading: 'Products for REAPER',
   productsDescription: 'Browse approved plugins, JSFX, ReaScript, extensions and templates for REAPER on RealS.',
@@ -58,18 +58,18 @@ const en: SeoCopy = {
   forReaper: 'for REAPER', ratingOutOfFive: '{rating} out of 5 stars', productTags: 'Product tags',
   pageNotFound: 'Page not found', pageNotFoundDescription: 'The page you are looking for does not exist or has been moved.',
   keywords: [
+    'RealS AI', 'AI audio workflow automation', 'REAPER MCP server', 'Model Context Protocol audio',
+    'Anthropic Claude audio automation', 'DSP code generation AI', 'AI stem separation DAW',
     'free REAPER plugins', 'best free REAPER plugins', 'free JSFX', 'free JSFX plugins',
     'free ReaScript download', 'free REAPER themes', 'free REAPER templates', 'free REAPER extensions',
-    'REAPER mixing plugins free', 'REAPER vocal plugins free', 'REAPER take lanes script', 'free DAW plugins',
-    'audio plugin marketplace', 'REAPER audio effects', 'JSFX download',
   ],
 }
 
 const copies: Record<Locale, SeoCopy> = {
   en,
   vi: {
-    homeTitle: 'RealS — Chợ Plugin & Script cho REAPER',
-    homeDescription: 'Khám phá plugin, JSFX, ReaScript, extension và template chuyên nghiệp dành cho phần mềm REAPER.',
+    homeTitle: 'RealS AI - Nền tảng AI Audio Workflow & REAPER MCP',
+    homeDescription: 'Nền tảng tự động hóa quy trình âm thanh AI xây dựng trên Anthropic Claude & Model Context Protocol (MCP) cho lập trình DSP, tách stem và REAPER DAW.',
     productsTitle: 'Sản phẩm REAPER', productsHeading: 'Sản phẩm dành cho REAPER',
     productsDescription: 'Plugin, JSFX, ReaScript, extension và template đã được duyệt trên RealS.', productsEmpty: 'Chưa có sản phẩm công khai.',
     home: 'Trang chủ', products: 'Sản phẩm', backHome: 'Về trang chủ', price: 'Giá', description: 'Mô tả sản phẩm',
@@ -77,11 +77,10 @@ const copies: Record<Locale, SeoCopy> = {
     forReaper: 'cho REAPER', ratingOutOfFive: '{rating} trên 5 sao', productTags: 'Thẻ sản phẩm',
     pageNotFound: 'Không tìm thấy trang', pageNotFoundDescription: 'Trang bạn tìm không tồn tại hoặc đã được chuyển đi.',
     keywords: [
-      'plugin REAPER miễn phí', 'tổng hợp plugin REAPER miễn phí', 'tải plugin REAPER free',
-      'JSFX miễn phí cho REAPER', 'script REAPER miễn phí', 'ReaScript miễn phí',
-      'giao diện REAPER miễn phí', 'template REAPER miễn phí', 'chợ plugin REAPER miễn phí',
-      'plugin mix vocal miễn phí REAPER', 'công cụ thu âm comping REAPER', 'top plugin JSFX hay nhất',
-      'cài đặt JSFX REAPER', 'tài nguyên REAPER Việt Nam',
+      'RealS AI', 'tự động hóa âm thanh AI', 'REAPER MCP server', 'plugin REAPER miễn phí',
+      'tổng hợp plugin REAPER miễn phí', 'tải plugin REAPER free', 'JSFX miễn phí cho REAPER',
+      'script REAPER miễn phí', 'ReaScript miễn phí', 'giao diện REAPER miễn phí',
+      'template REAPER miễn phí', 'chợ plugin REAPER miễn phí', 'cài đặt JSFX REAPER',
     ],
   },
   zh: {

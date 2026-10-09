@@ -1,6 +1,6 @@
 'use client'
 
-import { Github, Twitter, Youtube, Mail } from 'lucide-react'
+import { Github, Mail } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useAppStore } from '@/stores'
 import Link from 'next/link'
@@ -15,10 +15,13 @@ export function Footer() {
           {/* Brand */}
           <div>
             <h3 className="mb-3 text-lg font-bold text-white">
-              Real<span className="text-[#f5a623]">S</span>
+              Real<span className="text-[#f5a623]">S</span> <span className="text-xs font-semibold uppercase tracking-wider text-[#f5a623]">AI</span>
             </h3>
             <p className="text-sm leading-relaxed text-[#888]">
               {t('marketplaceAbout')}
+            </p>
+            <p className="mt-2 text-xs text-[#666]">
+              Founded Jan 2025 · Built on Anthropic Claude &amp; MCP
             </p>
           </div>
 
@@ -38,7 +41,8 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-[#888]">
               <li><a href="#" className="hover:text-white">{t('installGuide')}</a></li>
               <li><a href="#" className="hover:text-white">FAQ</a></li>
-              <li><a href="#" className="hover:text-white">{t('contact')}</a></li>
+              <li><a href="mailto:ceo@reals.media" className="hover:text-white">ceo@reals.media</a></li>
+              <li><a href="mailto:founder@reals.media" className="hover:text-white">founder@reals.media</a></li>
               <li><a href="#" className="hover:text-white">{t('refundPolicy')}</a></li>
             </ul>
           </div>
@@ -57,19 +61,13 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-[#303030] pt-6 md:flex-row">
           <p className="text-xs text-[#666]">
-            © 2025 RealS. {t('rights')}
+            © 2025–2026 RealS AI (reals.media). Founded January 2025 · Built on Anthropic Claude API &amp; Model Context Protocol (MCP). {t('rights')}
           </p>
           <div className="flex gap-4">
-            <a href="#" className="text-[#888] hover:text-white">
+            <a href="https://github.com/smk285pro-hash/reals" target="_blank" rel="noreferrer" aria-label="GitHub" className="text-[#888] hover:text-white">
               <Github className="h-4 w-4" />
             </a>
-            <a href="#" className="text-[#888] hover:text-white">
-              <Twitter className="h-4 w-4" />
-            </a>
-            <a href="#" className="text-[#888] hover:text-white">
-              <Youtube className="h-4 w-4" />
-            </a>
-            <a href="#" className="text-[#888] hover:text-white">
+            <a href="mailto:ceo@reals.media" aria-label="Email CEO" className="text-[#888] hover:text-white">
               <Mail className="h-4 w-4" />
             </a>
           </div>
